@@ -1,7 +1,7 @@
 {
   "name": "design-skills",
   "version": "1.0.0",
-  "description": "Design tool skills — Figma, Sketch, Adobe XD, AI art tools",
+  "description": "Design tool skills",
   "author": {
     "name": "PartMeAI",
     "email": "partmeai@gmail.com"
@@ -13,6 +13,6 @@
     "./skills/adobe-xd",
     "./skills/algorithmic-art",
     "./skills/brand-guidelines",
-    "./skills/canvas-design",
+    "./skills/canvas-design"
   ]
 }
