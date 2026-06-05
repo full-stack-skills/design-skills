@@ -1,0 +1,18 @@
+{
+  "name": "design-skills",
+  "version": "1.0.0",
+  "description": "Design tool skills — Figma, Sketch, Adobe XD, AI art tools",
+  "author": {
+    "name": "PartMeAI",
+    "email": "partmeai@gmail.com"
+  },
+  "homepage": "https://github.com/full-statck-skills/design-skills",
+  "repository": "https://github.com/full-statck-skills/design-skills",
+  "source": "./",
+  "skills": [
+    "./skills/adobe-xd",
+    "./skills/algorithmic-art",
+    "./skills/brand-guidelines",
+    "./skills/canvas-design",
+  ]
+}
