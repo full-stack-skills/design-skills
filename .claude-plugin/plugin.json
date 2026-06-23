@@ -6,8 +6,8 @@
     "name": "PartMeAI",
     "email": "partmeai@gmail.com"
   },
-  "homepage": "https://github.com/full-statck-skills/design-skills",
-  "repository": "https://github.com/full-statck-skills/design-skills",
+  "homepage": "https://github.com/full-stack-skills/design-skills",
+  "repository": "https://github.com/full-stack-skills/design-skills",
   "source": "./",
   "skills": [
     "./skills/adobe-xd",

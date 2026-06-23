@@ -57,5 +57,5 @@ skills/<skill-name>/
 ## Install
 
 ```bash
-npx skills add full-statck-skills/design-skills
+npx skills add full-stack-skills/design-skills
 ```
