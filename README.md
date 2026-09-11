@@ -24,7 +24,7 @@ English | [简体中文](./README.zh-CN.md)
 
 **Design Tools Skills** is a curated collection of Agent Skills for AI coding agents, part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem maintained by [PartMe.AI](https://github.com/partme-ai).
 
-This package includes **4 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
+This package includes **5 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
 
 ## 📦 Install
 
@@ -38,7 +38,7 @@ Or install specific skills:
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 Skills (4)
+## 🎯 Skills (5)
 
 | Skill | Description |
 |-------|-------------|
@@ -46,6 +46,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `algorithmic-art` | Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when user... |
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
+| `cross-platform-mvp-ui-alignment` | Align cross-platform MVP specifications, product states, design language, and matching Phone/Tablet UI asset sets. |
 
 ## 🤖 Supported Agents
 

@@ -2,7 +2,7 @@
 
 ## Project
 
-`design-skills` — curated collection of 4 Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
+`design-skills` — curated collection of 5 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
 
 ## Skills
 
@@ -12,6 +12,7 @@
 | `algorithmic-art` | `skills/algorithmic-art/` | p5.js generative art with seeded randomness, flow fields, particles |
 | `brand-guidelines` | `skills/brand-guidelines/` | Apply Anthropic brand colors/typography to artifacts |
 | `canvas-design` | `skills/canvas-design/` | Visual poster/design creation as .png or .pdf |
+| `cross-platform-mvp-ui-alignment` | `skills/cross-platform-mvp-ui-alignment/` | Align multi-platform MVP specs, product states, design language, and Phone/Tablet UI assets |
 
 ## Directory Structure
 
@@ -19,6 +20,8 @@
 skills/<skill-name>/
   SKILL.md          # YAML frontmatter + markdown body (loaded on-demand by agents)
   LICENSE.txt       # Per-skill license
+  agents/           # Optional client-facing metadata (for example, Codex UI metadata)
+  references/       # Optional detailed workflows, contracts, and FAQs loaded on demand
   templates/        # Optional: code templates (algorithmic-art)
   canvas-fonts/     # Optional: bundled .ttf fonts (canvas-design)
 .claude-plugin/
@@ -39,6 +42,7 @@ skills/<skill-name>/
 |------|---------|
 | `README.md` / `README.zh-CN.md` | Bilingual project documentation |
 | `.claude-plugin/plugin.json` | Plugin manifest — update when adding/removing skills |
+| `docs/superpowers/plans/2026-09-11-design-skills-history.md` | Completed historical task ledger reconstructed from Git commits |
 | `LICENSE` | Apache 2.0 |
 
 ## Plugin Manifest

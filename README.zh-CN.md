@@ -24,7 +24,7 @@
 
 **设计工具技能** 是一组 AI 编码智能体技能，属于 [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) 生态，由 [PartMe.AI](https://github.com/partme-ai) 维护。
 
-本包包含 **4 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
+本包包含 **5 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
 
 ## 📦 安装
 
@@ -38,7 +38,7 @@ npx skills add full-stack-skills/design-skills
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 技能列表 (4)
+## 🎯 技能列表 (5)
 
 | 技能 | 描述 |
 |------|------|
@@ -46,6 +46,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `algorithmic-art` | Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when user... |
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
+| `cross-platform-mvp-ui-alignment` | 对齐多平台 MVP 规格、产品状态、设计语言，并生成相互匹配的 Phone/Tablet UI 资产。 |
 
 ## 🤖 支持的智能体
 
