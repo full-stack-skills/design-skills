@@ -1,6 +1,6 @@
 ---
 name: cross-platform-mvp-ui-alignment
-license: Complete terms in LICENSE.txt
+license: Apache-2.0
 description: 对齐 Android、Apple 等多平台 MVP 规格、功能状态、设计语言与 Phone/Tablet 成套 UI 资产。适用于已有规格或图稿发生平台分叉、页面覆盖不一致、需要建立共享页面矩阵和可审查视觉基线的产品设计工作；不用于直接实现原生客户端代码。
 ---
 

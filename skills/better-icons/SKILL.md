@@ -1,5 +1,6 @@
 ---
 name: better-icons
+license: Apache-2.0
 description: 'Use when working with icons in any project. Provides CLI for searching 200+ icon libraries (Iconify) and retrieving SVGs. Commands: `better-icons search <query>` to find icons, `better-icons get <id>` to get SVG. Also available as MCP server for AI agents.'
 ---
 

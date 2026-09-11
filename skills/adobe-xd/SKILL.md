@@ -1,7 +1,7 @@
 ---
 name: adobe-xd
 description: Provides comprehensive guidance for Adobe XD including design creation, prototyping, components, and collaboration. Use when the user asks about Adobe XD, needs to create UI/UX designs, build prototypes, or work with Adobe XD components.
-license: Complete terms in LICENSE.txt
+license: Apache-2.0
 ---
 
 ## When to use this skill
