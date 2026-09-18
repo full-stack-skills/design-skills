@@ -49,5 +49,6 @@
       "handler": "design-harness",
       "required": true
     }
-  ]
+  ],
+  "child_profile": "existing-product-next-page"
 }
