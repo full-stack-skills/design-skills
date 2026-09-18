@@ -43,6 +43,10 @@ class RunLockTimeoutError(DesignHarnessError):
     pass
 
 
+class RunAmbiguityError(DesignHarnessError):
+    pass
+
+
 PRIMARY_STATES = [
     "INIT",
     "BASELINE_BOUND",
@@ -59,6 +63,7 @@ PRIMARY_STATES = [
 ]
 
 CONTROL_STATES = {"RECONCILING", "BLOCKED", "CORRECTION", "CANCELLED"}
+TERMINAL_STATES = {"ARCHIVED", "CANCELLED"}
 
 EXPECTED_TRANSITIONS = {
     "INIT": ("baseline", "BASELINE_BOUND"),
@@ -233,6 +238,69 @@ def _runs_dir(store: Path | str) -> Path:
 
 def run_lock_path(store: Path | str, run_id: str) -> Path:
     return _runs_dir(store) / f"{run_id}.lock"
+
+
+def registry_lock_path(store: Path | str) -> Path:
+    return _runs_dir(store) / ".registry.lock"
+
+
+@contextmanager
+def _registry_lock(
+    store: Path | str,
+    *,
+    timeout_seconds: float = 2.0,
+    stale_seconds: float = 30.0,
+):
+    directory = _runs_dir(store)
+    directory.mkdir(parents=True, exist_ok=True)
+    lock_path = registry_lock_path(store)
+    deadline = time.monotonic() + timeout_seconds
+    fd = None
+
+    while fd is None:
+        try:
+            fd = os.open(
+                lock_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                0o600,
+            )
+            payload = json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "created_at": utc_now(),
+                    "kind": "registry",
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ).encode("utf-8")
+            os.write(fd, payload)
+            os.fsync(fd)
+        except FileExistsError:
+            try:
+                age = time.time() - lock_path.stat().st_mtime
+            except FileNotFoundError:
+                continue
+            if age >= stale_seconds:
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                raise RunLockTimeoutError(
+                    "timed out acquiring design harness registry lock"
+                )
+            time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
+
+    try:
+        yield lock_path
+    finally:
+        if fd is not None:
+            os.close(fd)
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 @contextmanager
@@ -459,6 +527,194 @@ def load_run(store: Path | str, run_id: str) -> Dict[str, Any]:
         )
     run.setdefault("revision", revision)
     return run
+
+
+def _normalized_scope_ids(scope_ids: Iterable[str]) -> list[str]:
+    return sorted({str(item) for item in scope_ids if str(item).strip()})
+
+
+def _run_summary(run: Dict[str, Any]) -> Dict[str, Any]:
+    profile = run.get("profile") or {}
+    return {
+        "run_id": run["run_id"],
+        "revision": run.get("revision", 0),
+        "product_id": run.get("product_id"),
+        "product_version": run.get("product_version"),
+        "surface": run.get("surface"),
+        "scope_type": run.get("scope_type"),
+        "scope_ids": deepcopy(run.get("scope_ids") or []),
+        "scope": _canonical_scope(run),
+        "profile_id": profile.get("id"),
+        "profile_version": profile.get("version"),
+        "state": run.get("state"),
+        "parent_run_id": run.get("parent_run_id"),
+        "shared_baseline": run.get("shared_baseline"),
+        "created_at": run.get("created_at"),
+        "updated_at": run.get("updated_at"),
+        "archived_at": run.get("archived_at"),
+    }
+
+
+def scan_runs(store: Path | str) -> Dict[str, Any]:
+    directory = _runs_dir(store)
+    if not directory.exists():
+        return {"runs": [], "diagnostics": []}
+
+    runs = []
+    diagnostics = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            run = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(run, dict) or not run.get("run_id"):
+                raise ValidationError("run document missing run_id")
+            _validate_state(run["state"])
+            revision = run.get("revision", 0)
+            if not isinstance(revision, int) or revision < 0:
+                raise ValidationError(f"invalid revision: {revision}")
+            run.setdefault("revision", revision)
+            runs.append(run)
+        except Exception as exc:
+            diagnostics.append(
+                {
+                    "file": path.name,
+                    "error": type(exc).__name__,
+                    "message": str(exc),
+                }
+            )
+
+    runs.sort(
+        key=lambda item: (
+            item.get("updated_at") or "",
+            item.get("created_at") or "",
+            item.get("run_id") or "",
+        ),
+        reverse=True,
+    )
+    return {"runs": runs, "diagnostics": diagnostics}
+
+
+def list_runs(store: Path | str) -> list[Dict[str, Any]]:
+    return [_run_summary(run) for run in scan_runs(store)["runs"]]
+
+
+def find_runs(
+    store: Path | str,
+    *,
+    product_id: Optional[str] = None,
+    product_version: Optional[str] = None,
+    surface: Optional[str] = None,
+    scope_type: Optional[str] = None,
+    scope_ids: Optional[Iterable[str]] = None,
+    profile_id: Optional[str] = None,
+    include_terminal: bool = True,
+) -> list[Dict[str, Any]]:
+    normalized_scope = (
+        _normalized_scope_ids(scope_ids) if scope_ids is not None else None
+    )
+    matches = []
+
+    for run in scan_runs(store)["runs"]:
+        profile = run.get("profile") or {}
+        if product_id is not None and run.get("product_id") != product_id:
+            continue
+        if (
+            product_version is not None
+            and run.get("product_version") != product_version
+        ):
+            continue
+        if surface is not None and run.get("surface") != surface:
+            continue
+        if scope_type is not None and run.get("scope_type") != scope_type:
+            continue
+        if (
+            normalized_scope is not None
+            and _normalized_scope_ids(run.get("scope_ids") or [])
+            != normalized_scope
+        ):
+            continue
+        if profile_id is not None and profile.get("id") != profile_id:
+            continue
+        if not include_terminal and run.get("state") in TERMINAL_STATES:
+            continue
+        matches.append(_run_summary(run))
+
+    return matches
+
+
+def find_active_run(
+    store: Path | str,
+    *,
+    product_id: str,
+    product_version: str,
+    surface: str,
+    scope_type: str,
+    scope_ids: Iterable[str],
+    profile_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    matches = find_runs(
+        store,
+        product_id=product_id,
+        product_version=product_version,
+        surface=surface,
+        scope_type=scope_type,
+        scope_ids=scope_ids,
+        profile_id=profile_id,
+        include_terminal=False,
+    )
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise RunAmbiguityError(
+            "multiple active design runs match scope: "
+            + ", ".join(item["run_id"] for item in matches)
+        )
+    return load_run(store, matches[0]["run_id"])
+
+
+def ensure_run(
+    *,
+    store: Path | str,
+    product_id: str,
+    product_version: str,
+    surface: str,
+    scope_type: str,
+    scope_ids: Iterable[str],
+    authorities: Optional[Dict[str, str]] = None,
+    profile_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    lock_timeout_seconds: float = 2.0,
+    lock_stale_seconds: float = 30.0,
+) -> Dict[str, Any]:
+    scope_ids = list(scope_ids)
+    with _registry_lock(
+        store,
+        timeout_seconds=lock_timeout_seconds,
+        stale_seconds=lock_stale_seconds,
+    ):
+        existing = find_active_run(
+            store,
+            product_id=product_id,
+            product_version=product_version,
+            surface=surface,
+            scope_type=scope_type,
+            scope_ids=scope_ids,
+            profile_id=profile_id,
+        )
+        if existing is not None:
+            return {"created": False, "run": existing}
+
+        created = start_run(
+            store=store,
+            product_id=product_id,
+            product_version=product_version,
+            surface=surface,
+            scope_type=scope_type,
+            scope_ids=scope_ids,
+            authorities=authorities,
+            profile_id=profile_id,
+            run_id=run_id,
+        )
+        return {"created": True, "run": created}
 
 
 def start_run(
@@ -1766,6 +2022,30 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument("--worker-id")
     complete.add_argument("--evidence-json", required=True)
 
+    runs = sub.add_parser("runs")
+    runs.add_argument("--store", required=True)
+
+    find_run = sub.add_parser("find-run")
+    find_run.add_argument("--store", required=True)
+    find_run.add_argument("--product-id")
+    find_run.add_argument("--product-version")
+    find_run.add_argument("--surface")
+    find_run.add_argument("--scope-type")
+    find_run.add_argument("--scope-id", action="append")
+    find_run.add_argument("--profile")
+    find_run.add_argument("--active-only", action="store_true")
+
+    ensure = sub.add_parser("ensure-run")
+    ensure.add_argument("--store", required=True)
+    ensure.add_argument("--product-id", required=True)
+    ensure.add_argument("--product-version", required=True)
+    ensure.add_argument("--surface", required=True)
+    ensure.add_argument("--scope-type", required=True)
+    ensure.add_argument("--scope-id", action="append", required=True)
+    ensure.add_argument("--authority", action="append", default=[])
+    ensure.add_argument("--profile")
+    ensure.add_argument("--run-id")
+
     return parser
 
 
@@ -1884,6 +2164,33 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.dispatch_id,
                 _load_json_arg(args.evidence_json),
                 worker_id=args.worker_id,
+            )
+        elif args.command == "runs":
+            result = {"runs": list_runs(args.store)}
+        elif args.command == "find-run":
+            result = {
+                "runs": find_runs(
+                    args.store,
+                    product_id=args.product_id,
+                    product_version=args.product_version,
+                    surface=args.surface,
+                    scope_type=args.scope_type,
+                    scope_ids=args.scope_id,
+                    profile_id=args.profile,
+                    include_terminal=not args.active_only,
+                )
+            }
+        elif args.command == "ensure-run":
+            result = ensure_run(
+                store=args.store,
+                product_id=args.product_id,
+                product_version=args.product_version,
+                surface=args.surface,
+                scope_type=args.scope_type,
+                scope_ids=args.scope_id,
+                authorities=_parse_authorities(args.authority),
+                profile_id=args.profile,
+                run_id=args.run_id,
             )
         else:
             parser.error(f"unknown command: {args.command}")
