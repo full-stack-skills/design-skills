@@ -24,7 +24,7 @@ English | [简体中文](./README.zh-CN.md)
 
 **Design Tools Skills** is a curated collection of Agent Skills for AI coding agents, part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem maintained by [PartMe.AI](https://github.com/partme-ai).
 
-This package currently registers **8 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
+This package currently registers **10 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
 
 ## 📦 Install
 
@@ -38,7 +38,7 @@ Or install specific skills:
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 Skills (8)
+## 🎯 Skills (10)
 
 | Skill | Description |
 |-------|-------------|
@@ -50,6 +50,8 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `feature-design` | Turn underspecified product features into observable behavior contracts covering actions, states, permissions, evidence, and acceptance. |
 | `navigation-design` | Define scoped navigation, routes, activation, context propagation, deep links, and return contracts without hierarchy drift. |
 | `ui-continuity` | Continue approved UI families with explicit immutable regions, change budgets, scoped feedback, and baseline-vs-candidate checks. |
+| `product-design` | Orchestrate multi-stage product-design work across feature, navigation, documentation, continuity, rendering, review, and verification without duplicating specialist skills. |
+| `design-guard` | Audit cross-artifact design consistency, distinguish mechanical and judgment checks, and block promotion when evidence or authority is unresolved. |
 
 ## 🤖 Supported Agents
 
