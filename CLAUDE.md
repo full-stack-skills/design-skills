@@ -2,7 +2,7 @@
 
 ## Project
 
-`design-skills` — curated collection of 5 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
+`design-skills` — curated collection of 8 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
 
 ## Skills
 
@@ -13,6 +13,9 @@
 | `brand-guidelines` | `skills/brand-guidelines/` | Apply Anthropic brand colors/typography to artifacts |
 | `canvas-design` | `skills/canvas-design/` | Visual poster/design creation as .png or .pdf |
 | `cross-platform-mvp-ui-alignment` | `skills/cross-platform-mvp-ui-alignment/` | Align multi-platform MVP specs, product states, design language, and Phone/Tablet UI assets |
+| `feature-design` | `skills/feature-design/` | Turn feature intent into observable product behavior contracts before UI/implementation |
+| `navigation-design` | `skills/navigation-design/` | Define navigation scopes, routes, activation, deep links, context, and return contracts |
+| `ui-continuity` | `skills/ui-continuity/` | Continue approved UI families with explicit change budgets and scoped feedback |
 
 ## Directory Structure
 
