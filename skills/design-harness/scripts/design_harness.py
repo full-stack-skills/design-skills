@@ -433,17 +433,20 @@ def get_next_action(store: Path | str, run_id: str) -> Dict[str, Any]:
     active_dispatch_id = run.get("active_dispatch_id")
     if active_dispatch_id:
         active = _find_dispatch(run, active_dispatch_id)
-        if active.get("status") == "issued":
+        if active.get("status") in {"issued", "claimed"}:
             return {
                 "kind": "inflight",
                 "handler": active["handler"],
                 "operation": "complete-dispatch",
                 "dispatch_id": active["dispatch_id"],
+                "dispatch_status": active["status"],
+                "worker_id": active.get("worker_id"),
                 "evidence_stage": active["evidence_stage"],
                 "target_state": active["target_state"],
                 "scope": active["scope"],
                 "expected_evidence": deepcopy(active["expected_evidence"]),
                 "issued_at": active["issued_at"],
+                "claimed_at": active.get("claimed_at"),
             }
 
     if state == "RECONCILING":
@@ -581,7 +584,7 @@ def issue_dispatch(store: Path | str, run_id: str) -> Dict[str, Any]:
     active_id = run.get("active_dispatch_id")
     if active_id:
         active = _find_dispatch(run, active_id)
-        if active.get("status") == "issued":
+        if active.get("status") in {"issued", "claimed"}:
             return deepcopy(active)
         run["active_dispatch_id"] = None
 
@@ -610,6 +613,9 @@ def issue_dispatch(store: Path | str, run_id: str) -> Dict[str, Any]:
         "expected_evidence": action["expected_evidence"],
         "stop_conditions": action["stop_conditions"],
         "status": "issued",
+        "worker_id": None,
+        "claimed_at": None,
+        "releases": [],
         "issued_at": utc_now(),
         "completed_at": None,
         "evidence_id": None,
@@ -627,11 +633,105 @@ def issue_dispatch(store: Path | str, run_id: str) -> Dict[str, Any]:
     return deepcopy(dispatch)
 
 
+def claim_dispatch(
+    store: Path | str,
+    run_id: str,
+    dispatch_id: str,
+    *,
+    worker_id: str,
+) -> Dict[str, Any]:
+    if not worker_id or not worker_id.strip():
+        raise ValidationError("worker_id is required")
+
+    run = load_run(store, run_id)
+    if run.get("active_dispatch_id") != dispatch_id:
+        raise TransitionError(
+            f"dispatch is not active: expected {run.get('active_dispatch_id')}, got {dispatch_id}"
+        )
+
+    dispatch = _find_dispatch(run, dispatch_id)
+    status = dispatch.get("status")
+
+    if status == "claimed":
+        if dispatch.get("worker_id") == worker_id:
+            return deepcopy(dispatch)
+        raise TransitionError(
+            f"dispatch {dispatch_id} is already claimed by {dispatch.get('worker_id')}"
+        )
+
+    if status != "issued":
+        raise TransitionError(
+            f"dispatch {dispatch_id} cannot be claimed from status {status}"
+        )
+
+    dispatch["status"] = "claimed"
+    dispatch["worker_id"] = worker_id
+    dispatch["claimed_at"] = utc_now()
+    _append_history(
+        run,
+        "dispatch_claimed",
+        dispatch_id=dispatch_id,
+        worker_id=worker_id,
+    )
+    save_run(store, run)
+    return deepcopy(dispatch)
+
+
+def release_dispatch(
+    store: Path | str,
+    run_id: str,
+    dispatch_id: str,
+    *,
+    worker_id: str,
+    reason: str,
+) -> Dict[str, Any]:
+    if not reason or not reason.strip():
+        raise ValidationError("release reason is required")
+
+    run = load_run(store, run_id)
+    if run.get("active_dispatch_id") != dispatch_id:
+        raise TransitionError(
+            f"dispatch is not active: expected {run.get('active_dispatch_id')}, got {dispatch_id}"
+        )
+
+    dispatch = _find_dispatch(run, dispatch_id)
+    if dispatch.get("status") != "claimed":
+        raise TransitionError(
+            f"dispatch {dispatch_id} is not claimed: {dispatch.get('status')}"
+        )
+    if dispatch.get("worker_id") != worker_id:
+        raise TransitionError(
+            f"dispatch {dispatch_id} is claimed by {dispatch.get('worker_id')}, not {worker_id}"
+        )
+
+    dispatch.setdefault("releases", []).append(
+        {
+            "worker_id": worker_id,
+            "reason": reason,
+            "released_at": utc_now(),
+        }
+    )
+    dispatch["status"] = "issued"
+    dispatch["worker_id"] = None
+    dispatch["claimed_at"] = None
+    _append_history(
+        run,
+        "dispatch_released",
+        dispatch_id=dispatch_id,
+        worker_id=worker_id,
+        reason=reason,
+    )
+    save_run(store, run)
+    return deepcopy(dispatch)
+
+
 def complete_dispatch(
     store: Path | str,
     run_id: str,
     dispatch_id: str,
     evidence: Dict[str, Any],
+    *,
+    worker_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     run = load_run(store, run_id)
     active_id = run.get("active_dispatch_id")
@@ -641,10 +741,20 @@ def complete_dispatch(
         )
 
     dispatch = _find_dispatch(run, dispatch_id)
-    if dispatch.get("status") != "issued":
+    dispatch_status = dispatch.get("status")
+    if dispatch_status not in {"issued", "claimed"}:
         raise TransitionError(
-            f"dispatch {dispatch_id} is not issued: {dispatch.get('status')}"
+            f"dispatch {dispatch_id} is not completable: {dispatch_status}"
         )
+    if dispatch_status == "claimed":
+        if not worker_id:
+            raise TransitionError(
+                f"dispatch {dispatch_id} is claimed by {dispatch.get('worker_id')}; worker_id is required"
+            )
+        if dispatch.get("worker_id") != worker_id:
+            raise TransitionError(
+                f"dispatch {dispatch_id} is claimed by {dispatch.get('worker_id')}, not {worker_id}"
+            )
     if evidence.get("stage") != dispatch["expected_evidence"]["stage"]:
         raise TransitionError(
             f"dispatch {dispatch_id} expects evidence stage {dispatch['expected_evidence']['stage']}, got {evidence.get('stage')}"
@@ -1332,10 +1442,24 @@ def build_parser() -> argparse.ArgumentParser:
     dispatch.add_argument("--store", required=True)
     dispatch.add_argument("--run-id", required=True)
 
+    claim = sub.add_parser("claim-dispatch")
+    claim.add_argument("--store", required=True)
+    claim.add_argument("--run-id", required=True)
+    claim.add_argument("--dispatch-id", required=True)
+    claim.add_argument("--worker-id", required=True)
+
+    release = sub.add_parser("release-dispatch")
+    release.add_argument("--store", required=True)
+    release.add_argument("--run-id", required=True)
+    release.add_argument("--dispatch-id", required=True)
+    release.add_argument("--worker-id", required=True)
+    release.add_argument("--reason", required=True)
+
     complete = sub.add_parser("complete-dispatch")
     complete.add_argument("--store", required=True)
     complete.add_argument("--run-id", required=True)
     complete.add_argument("--dispatch-id", required=True)
+    complete.add_argument("--worker-id")
     complete.add_argument("--evidence-json", required=True)
 
     return parser
@@ -1425,12 +1549,28 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             result = get_next_action(args.store, args.run_id)
         elif args.command == "dispatch":
             result = issue_dispatch(args.store, args.run_id)
+        elif args.command == "claim-dispatch":
+            result = claim_dispatch(
+                args.store,
+                args.run_id,
+                args.dispatch_id,
+                worker_id=args.worker_id,
+            )
+        elif args.command == "release-dispatch":
+            result = release_dispatch(
+                args.store,
+                args.run_id,
+                args.dispatch_id,
+                worker_id=args.worker_id,
+                reason=args.reason,
+            )
         elif args.command == "complete-dispatch":
             result = complete_dispatch(
                 args.store,
                 args.run_id,
                 args.dispatch_id,
                 _load_json_arg(args.evidence_json),
+                worker_id=args.worker_id,
             )
         else:
             parser.error(f"unknown command: {args.command}")
