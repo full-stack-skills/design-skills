@@ -72,6 +72,19 @@ EVIDENCE_RESULT_STATE = {
     "delivery": "DELIVERY_VERIFIED",
 }
 
+DEFAULT_STAGE_HANDLERS = {
+    "baseline": "product-design",
+    "behavior": "feature-design",
+    "navigation": "navigation-design",
+    "task": "product-design",
+    "continuity": "ui-continuity",
+    "candidate": "renderer",
+    "guard": "design-guard",
+    "approval-ready": "design-harness",
+    "delivery": "delivery-verification",
+    "correction": "ui-continuity",
+}
+
 VALID_EVIDENCE_STATUSES = {"pass", "fail", "unknown", "needs-decision"}
 VALID_ARTIFACT_STATUSES = {"valid", "invalidated", "superseded", "unknown"}
 VALID_MATURITY = {
@@ -336,6 +349,8 @@ def start_run(
         "authorities": deepcopy(authorities or {}),
         "artifacts": [],
         "evidence": [],
+        "dispatches": [],
+        "active_dispatch_id": None,
         "decisions": [],
         "invalidations": [],
         "next_action": None,
@@ -350,11 +365,322 @@ def start_run(
     return save_run(store, run)
 
 
+def _valid_evidence_ids(run: Dict[str, Any]) -> list[str]:
+    return [
+        item["evidence_id"]
+        for item in run.get("evidence", [])
+        if item.get("validity", "valid") == "valid"
+    ]
+
+
+def _valid_artifact_ids(run: Dict[str, Any]) -> list[str]:
+    return [
+        item["artifact_id"]
+        for item in run.get("artifacts", [])
+        if item.get("status", "valid") == "valid"
+    ]
+
+
+def _dispatch_inputs(run: Dict[str, Any]) -> Dict[str, Any]:
+    authorities = deepcopy(run.get("authorities") or {})
+    return {
+        "product_id": run["product_id"],
+        "product_version": run["product_version"],
+        "surface": run["surface"],
+        "scope_type": run["scope_type"],
+        "scope_ids": deepcopy(run.get("scope_ids") or []),
+        "scope": _canonical_scope(run),
+        "authorities": authorities,
+        "authority_versions": authorities,
+        "valid_artifact_ids": _valid_artifact_ids(run),
+        "valid_evidence_ids": _valid_evidence_ids(run),
+        "parent_run_id": run.get("parent_run_id"),
+        "shared_baseline": run.get("shared_baseline"),
+    }
+
+
+def _dispatch_action_for_stage(
+    run: Dict[str, Any],
+    *,
+    evidence_stage: str,
+    target_state: str,
+    handler: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
+        "kind": "dispatch",
+        "handler": handler or DEFAULT_STAGE_HANDLERS.get(evidence_stage, "unknown"),
+        "evidence_stage": evidence_stage,
+        "target_state": target_state,
+        "scope": _canonical_scope(run),
+        "inputs": _dispatch_inputs(run),
+        "expected_evidence": {
+            "stage": evidence_stage,
+            "allowed_statuses": sorted(VALID_EVIDENCE_STATUSES),
+        },
+        "stop_conditions": [
+            "blocking-finding",
+            "needs-decision",
+            "unknown-provider-outcome",
+            "human-approval-required",
+        ],
+    }
+
+
+def get_next_action(store: Path | str, run_id: str) -> Dict[str, Any]:
+    run = load_run(store, run_id)
+    state = run["state"]
+
+    if state == "RECONCILING":
+        reconciliation = run.get("reconciliation") or {}
+        return {
+            "kind": "control",
+            "handler": "design-harness",
+            "operation": "reconcile",
+            "scope": _canonical_scope(run),
+            "stage": reconciliation.get("stage"),
+            "attempts": reconciliation.get("attempts", 0),
+            "return_state": reconciliation.get("return_state"),
+            "target_state": reconciliation.get("target_state"),
+        }
+
+    if state == "BLOCKED":
+        return {
+            "kind": "control",
+            "handler": "human",
+            "operation": "resolve-blocker",
+            "scope": _canonical_scope(run),
+        }
+
+    if state == "CORRECTION":
+        return _dispatch_action_for_stage(
+            run,
+            evidence_stage="correction",
+            target_state="CORRECTION",
+            handler="ui-continuity",
+        )
+
+    if state == "AWAITING_USER_APPROVAL":
+        return {
+            "kind": "human",
+            "handler": "human",
+            "operation": "approve",
+            "scope": _canonical_scope(run),
+        }
+
+    if state == "APPROVED":
+        return {
+            "kind": "verification",
+            "handler": "delivery-verification",
+            "operation": "verify",
+            "scope": _canonical_scope(run),
+            "evidence_stage": "delivery",
+            "expected_evidence": {
+                "stage": "delivery",
+                "allowed_statuses": sorted(VALID_EVIDENCE_STATUSES),
+            },
+            "inputs": _dispatch_inputs(run),
+        }
+
+    if state == "DELIVERY_VERIFIED":
+        return {
+            "kind": "control",
+            "handler": "design-harness",
+            "operation": "archive",
+            "scope": _canonical_scope(run),
+        }
+
+    if state in {"ARCHIVED", "CANCELLED"}:
+        return {
+            "kind": "done",
+            "handler": "design-harness",
+            "operation": "none",
+            "scope": _canonical_scope(run),
+        }
+
+    profile = run.get("profile") or {}
+    profile_stage = _profile_next_stage(run) if profile else None
+    if profile_stage is not None:
+        return _dispatch_action_for_stage(
+            run,
+            evidence_stage=profile_stage["evidence_stage"],
+            target_state=profile_stage["target_state"],
+            handler=profile_stage.get("handler"),
+        )
+
+    if profile.get("id") == "page-family-batch" and state == "BASELINE_BOUND":
+        batch = batch_status(store, run_id)
+        if not run.get("children"):
+            return {
+                "kind": "control",
+                "handler": "design-harness",
+                "operation": "spawn-children",
+                "scope": _canonical_scope(run),
+                "shared_baseline": run.get("shared_baseline")
+                or run.get("authorities", {}).get("baseline"),
+            }
+        if batch["ready_for_batch_approval"]:
+            return {
+                "kind": "human",
+                "handler": "human",
+                "operation": "batch-approve",
+                "scope": _canonical_scope(run),
+                "shared_baseline": batch["shared_baseline"],
+            }
+        return {
+            "kind": "control",
+            "handler": "design-harness",
+            "operation": "batch-status",
+            "scope": _canonical_scope(run),
+            "overall_state": batch["overall_state"],
+            "shared_baseline": batch["shared_baseline"],
+        }
+
+    if not profile and state in EXPECTED_TRANSITIONS:
+        evidence_stage, target_state = EXPECTED_TRANSITIONS[state]
+        return _dispatch_action_for_stage(
+            run,
+            evidence_stage=evidence_stage,
+            target_state=target_state,
+            handler=DEFAULT_STAGE_HANDLERS.get(evidence_stage),
+        )
+
+    return {
+        "kind": "done",
+        "handler": "design-harness",
+        "operation": "none",
+        "scope": _canonical_scope(run),
+    }
+
+
+def _find_dispatch(run: Dict[str, Any], dispatch_id: str) -> Dict[str, Any]:
+    for item in run.get("dispatches", []):
+        if item.get("dispatch_id") == dispatch_id:
+            return item
+    raise ValidationError(f"dispatch not found: {dispatch_id}")
+
+
+def issue_dispatch(store: Path | str, run_id: str) -> Dict[str, Any]:
+    run = load_run(store, run_id)
+
+    active_id = run.get("active_dispatch_id")
+    if active_id:
+        active = _find_dispatch(run, active_id)
+        if active.get("status") == "issued":
+            return deepcopy(active)
+        run["active_dispatch_id"] = None
+
+    action = get_next_action(store, run_id)
+    if action.get("kind") != "dispatch":
+        raise TransitionError(
+            f"next action is {action.get('kind')}:{action.get('operation') or action.get('handler')}, not a dispatch"
+        )
+
+    profile = run.get("profile") or {}
+    dispatch = {
+        "contract_version": 1,
+        "dispatch_id": f"dispatch_{uuid.uuid4().hex[:12]}",
+        "run_id": run_id,
+        "profile": {
+            "id": profile.get("id"),
+            "version": profile.get("version"),
+        },
+        "stage_cursor": run.get("stage_cursor"),
+        "state_at_issue": run["state"],
+        "handler": action["handler"],
+        "evidence_stage": action["evidence_stage"],
+        "target_state": action["target_state"],
+        "scope": action["scope"],
+        "inputs": action["inputs"],
+        "expected_evidence": action["expected_evidence"],
+        "stop_conditions": action["stop_conditions"],
+        "status": "issued",
+        "issued_at": utc_now(),
+        "completed_at": None,
+        "evidence_id": None,
+    }
+    run.setdefault("dispatches", []).append(dispatch)
+    run["active_dispatch_id"] = dispatch["dispatch_id"]
+    _append_history(
+        run,
+        "dispatch_issued",
+        dispatch_id=dispatch["dispatch_id"],
+        handler=dispatch["handler"],
+        evidence_stage=dispatch["evidence_stage"],
+    )
+    save_run(store, run)
+    return deepcopy(dispatch)
+
+
+def complete_dispatch(
+    store: Path | str,
+    run_id: str,
+    dispatch_id: str,
+    evidence: Dict[str, Any],
+) -> Dict[str, Any]:
+    run = load_run(store, run_id)
+    active_id = run.get("active_dispatch_id")
+    if active_id != dispatch_id:
+        raise TransitionError(
+            f"dispatch is not active: expected {active_id}, got {dispatch_id}"
+        )
+
+    dispatch = _find_dispatch(run, dispatch_id)
+    if dispatch.get("status") != "issued":
+        raise TransitionError(
+            f"dispatch {dispatch_id} is not issued: {dispatch.get('status')}"
+        )
+    if evidence.get("stage") != dispatch["expected_evidence"]["stage"]:
+        raise TransitionError(
+            f"dispatch {dispatch_id} expects evidence stage {dispatch['expected_evidence']['stage']}, got {evidence.get('stage')}"
+        )
+    if evidence.get("status") not in dispatch["expected_evidence"]["allowed_statuses"]:
+        raise ValidationError(
+            f"dispatch {dispatch_id} does not allow evidence status {evidence.get('status')}"
+        )
+
+    bound_evidence = deepcopy(evidence)
+    bound_evidence["dispatch_id"] = dispatch_id
+    advanced = resume_run(store, run_id, bound_evidence)
+
+    run = load_run(store, run_id)
+    dispatch = _find_dispatch(run, dispatch_id)
+    status = evidence.get("status")
+    if status == "pass":
+        dispatch["status"] = "completed"
+    elif status == "unknown":
+        dispatch["status"] = "unknown"
+    else:
+        dispatch["status"] = "blocked"
+    dispatch["completed_at"] = utc_now()
+
+    evidence_item = next(
+        (
+            item
+            for item in reversed(run.get("evidence", []))
+            if item.get("dispatch_id") == dispatch_id
+        ),
+        None,
+    )
+    if evidence_item:
+        dispatch["evidence_id"] = evidence_item["evidence_id"]
+
+    run["active_dispatch_id"] = None
+    _append_history(
+        run,
+        "dispatch_completed",
+        dispatch_id=dispatch_id,
+        status=dispatch["status"],
+        evidence_id=dispatch.get("evidence_id"),
+    )
+    return save_run(store, run)
+
+
 def status_run(store: Path | str, run_id: str) -> Dict[str, Any]:
     run = load_run(store, run_id)
     result = deepcopy(run)
     result["profile_next"] = _profile_next_stage(run)
     result["profile_complete"] = bool(run.get("profile")) and result["profile_next"] is None
+    result["computed_next_action"] = get_next_action(store, run_id)
     return result
 
 
@@ -414,6 +740,12 @@ def resume_run(
 
     if state in {"RECONCILING", "BLOCKED", "CANCELLED", "ARCHIVED"}:
         raise TransitionError(f"cannot resume directly from {state}")
+
+    active_dispatch_id = run.get("active_dispatch_id")
+    if active_dispatch_id and evidence.get("dispatch_id") != active_dispatch_id:
+        raise TransitionError(
+            f"run has active dispatch {active_dispatch_id}; complete it with matching dispatch evidence"
+        )
 
     item = _normalize_evidence(evidence, run_id)
 
@@ -976,6 +1308,20 @@ def build_parser() -> argparse.ArgumentParser:
     batch_approval.add_argument("--run-id", required=True)
     batch_approval.add_argument("--actor", default="human")
 
+    next_action = sub.add_parser("next-action")
+    next_action.add_argument("--store", required=True)
+    next_action.add_argument("--run-id", required=True)
+
+    dispatch = sub.add_parser("dispatch")
+    dispatch.add_argument("--store", required=True)
+    dispatch.add_argument("--run-id", required=True)
+
+    complete = sub.add_parser("complete-dispatch")
+    complete.add_argument("--store", required=True)
+    complete.add_argument("--run-id", required=True)
+    complete.add_argument("--dispatch-id", required=True)
+    complete.add_argument("--evidence-json", required=True)
+
     return parser
 
 
@@ -1058,6 +1404,17 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.store,
                 args.run_id,
                 actor=args.actor,
+            )
+        elif args.command == "next-action":
+            result = get_next_action(args.store, args.run_id)
+        elif args.command == "dispatch":
+            result = issue_dispatch(args.store, args.run_id)
+        elif args.command == "complete-dispatch":
+            result = complete_dispatch(
+                args.store,
+                args.run_id,
+                args.dispatch_id,
+                _load_json_arg(args.evidence_json),
             )
         else:
             parser.error(f"unknown command: {args.command}")
