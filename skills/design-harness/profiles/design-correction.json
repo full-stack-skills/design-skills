@@ -1,0 +1,37 @@
+{
+  "id": "design-correction",
+  "version": 1,
+  "title": "Design Correction",
+  "description": "Apply scoped feedback to an existing run, invalidate only affected downstream evidence, and return to the prior promotion path.",
+  "entry_mode": "correction",
+  "required_authorities": [],
+  "parallel_policy": "serial",
+  "child_scope": null,
+  "final_gate": "APPROVED",
+  "stages": [
+    {
+      "evidence_stage": "correction",
+      "target_state": "CORRECTION",
+      "handler": "ui-continuity",
+      "required": true
+    },
+    {
+      "evidence_stage": "candidate",
+      "target_state": "CANDIDATE_READY",
+      "handler": "renderer",
+      "required": true
+    },
+    {
+      "evidence_stage": "guard",
+      "target_state": "GUARD_REVIEWED",
+      "handler": "design-guard",
+      "required": true
+    },
+    {
+      "evidence_stage": "approval-ready",
+      "target_state": "AWAITING_USER_APPROVAL",
+      "handler": "design-harness",
+      "required": true
+    }
+  ]
+}
