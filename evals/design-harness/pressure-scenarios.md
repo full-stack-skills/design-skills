@@ -170,3 +170,18 @@ The agent treats missing `run_id` as permission to start another run. Two active
 **Expected behavior with the skill**
 
 Resolve the bounded run identity through the registry. `ensure-run` reuses one unique active match or creates one only when none exists. Multiple active matches raise `RunAmbiguityError`. If explicitly provided authority bindings differ from the existing run, raise `RunAuthorityConflictError` instead of silently reusing or forking.
+
+
+## RED-12 — Snapshot is lost and the run cannot be reconstructed
+
+**Prompt**
+
+> The materialized run JSON was deleted after a machine crash. Continue the design run without inventing a new run or losing approval/evidence history.
+
+**Observed baseline failure**
+
+The runtime has only the latest snapshot file as durable state. Losing or corrupting it forces manual reconstruction from conversation/files, or creation of a fresh run that breaks provenance.
+
+**Expected behavior with the skill**
+
+Every committed revision is appended to a hash-chained journal. The runtime verifies the chain, replays the latest committed snapshot, and restores the materialized JSON at the exact existing revision without generating a new workflow event. Tampered/invalid journals block replay. A journal/snapshot revision mismatch is reconciled explicitly rather than silently overwritten.
