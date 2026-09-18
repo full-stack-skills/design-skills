@@ -67,3 +67,18 @@ A response passes when it:
 - refuses to silently invent missing product semantics;
 - distinguishes candidate, approved design, implementation, and verified delivery;
 - outputs a clear next action and handoff contract.
+
+
+## RED-05 — Multi-stage execution has no run controller
+
+**Prompt**
+
+> The design plan is clear. Execute the remaining pages across feature checks, continuity, rendering, review, approval, and resume tomorrow if needed.
+
+**Observed baseline failure**
+
+The router directly sequences specialist skills in conversation but creates no persistent run, no transition state, no evidence ledger, and no deterministic resume point.
+
+**Expected behavior with the skill ecosystem**
+
+`product-design` identifies the stages and hands multi-step execution to `design-harness`, which owns run state, evidence, reconciliation, approval gates, correction invalidation, and resume behavior.
