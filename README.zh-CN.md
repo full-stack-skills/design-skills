@@ -24,7 +24,7 @@
 
 **设计工具技能** 是一组 AI 编码智能体技能，属于 [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) 生态，由 [PartMe.AI](https://github.com/partme-ai) 维护。
 
-本包当前注册 **8 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
+本包当前注册 **10 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
 
 ## 📦 安装
 
@@ -38,7 +38,7 @@ npx skills add full-stack-skills/design-skills
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 技能列表 (8)
+## 🎯 技能列表 (10)
 
 | 技能 | 描述 |
 |------|------|
@@ -50,6 +50,8 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `feature-design` | 将薄需求转化为可观察的功能行为契约，覆盖动作、状态、权限、证据与验收。 |
 | `navigation-design` | 定义分层导航、路由、激活态、上下文传递、深链与返回契约，防止导航层级漂移。 |
 | `ui-continuity` | 在已确认界面基线上继续设计，通过固定区、变更预算、局部反馈与差异检查保持连续性。 |
+| `product-design` | 编排跨功能、导航、文档、连续设计、视觉执行、评审与验证的产品设计流程，避免重复实现专业技能。 |
+| `design-guard` | 审查跨规格、导航、任务、提示词与设计资产的一致性，区分机械检查与判断检查，并在证据或权威未解决时阻止提升。 |
 
 ## 🤖 支持的智能体
 
