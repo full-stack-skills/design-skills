@@ -102,3 +102,13 @@ A dispatch records:
 The run stores at most one `active_dispatch_id`. Re-issuing while it is still `issued` returns the same dispatch packet.
 
 Historical dispatches remain in the ledger after completion, reconciliation, correction, or archival.
+
+
+### Dispatch ownership fields
+
+For concurrent workers, each dispatch also records:
+- `worker_id`;
+- `claimed_at`;
+- `releases[]` with prior worker, reason, and release time.
+
+A dispatch may be `issued` or `claimed` while active. Completion from a claimed dispatch requires the same worker ID. Release returns it to `issued` without changing the dispatch identity.
