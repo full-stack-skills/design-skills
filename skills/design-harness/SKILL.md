@@ -46,10 +46,11 @@ When the next action is a specialist skill/tool, do not invoke it directly from 
 
 1. Run `next-action` to inspect the computed transition.
 2. Run `dispatch` to issue an idempotent dispatch packet with exact scope, authority versions, valid upstream evidence/artifacts, handler, expected evidence stage, and stop conditions.
-3. In multi-worker environments, claim the dispatch with `claim-dispatch --worker-id ...` before executing it. A second worker cannot claim the same active dispatch.
-4. Execute exactly the named handler against that packet.
-5. Return the result through `complete-dispatch --dispatch-id ... --worker-id ... --evidence-json ...` when claimed.
-6. Only then inspect the next action.
+3. In multi-worker environments, claim the dispatch with `claim-dispatch --worker-id ...` before executing it. Claims use a bounded lease (default 900 seconds); a second worker cannot claim an unexpired lease.
+4. For long-running work, renew ownership with `heartbeat-dispatch` before the lease expires. If the worker disappears, another worker may reclaim the same dispatch after expiry; the reclaim is recorded in the release ledger.
+5. Execute exactly the named handler against that packet.
+6. Return the result through `complete-dispatch --dispatch-id ... --worker-id ... --evidence-json ...` when claimed. An expired worker lease cannot complete the dispatch.
+7. Only then inspect the next action.
 
 A wrong/stale dispatch ID or wrong evidence stage is rejected. While an active dispatch exists, direct `resume` cannot bypass it. Claimed work can only be completed by the owning worker; use `release-dispatch` with a reason before reassignment.
 
@@ -84,6 +85,7 @@ Use [references/run-contract.md](references/run-contract.md) for persistent stat
 
 - No visual execution before required behavior/navigation decisions are either confirmed or explicitly marked as non-blocking assumptions.
 - No specialist execution may bypass an outstanding dispatch receipt; dispatch-bound evidence must return through `complete-dispatch`.
+- Expired claims are reclaimable, but an expired owner may not submit evidence until it reclaims the dispatch.
 - No candidate promotion while `design-guard` has blocking `FAIL` or `NEEDS DECISION` findings.
 - No user-approval state without explicit approval for the named scope.
 - No implementation/delivery verification claim from design-render evidence alone.
