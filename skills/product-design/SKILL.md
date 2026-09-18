@@ -8,7 +8,7 @@ license: Apache-2.0
 
 ## Overview
 
-Coordinate product-design work as a staged system. Preserve confirmed decisions, route each unresolved problem to the narrowest specialist skill, and pass explicit contracts downstream instead of re-solving the same problem at every stage.
+Coordinate product-design work as a staged system. Preserve confirmed decisions, route each unresolved problem to the narrowest specialist skill, and pass explicit contracts downstream instead of re-solving the same problem at every stage. For resumable multi-step execution, hand the routed plan to `design-harness` rather than managing run state here.
 
 ## When to use this skill
 
@@ -23,7 +23,8 @@ Do not use this skill as a replacement for specialist design, documentation, ren
 ## How to use this skill
 
 1. **Recover the current state.** Identify approved facts, current stage, completed artifacts, open decisions, and the next unfinished deliverable.
-2. **Classify the missing work.**
+2. **Choose execution mode.** If the task spans multiple stages, tools, approvals, corrections, or must resume later, **REQUIRED SUB-SKILL:** use `design-harness` as the execution controller. Keep this skill as the router/decision layer.
+3. **Classify the missing work.**
    - behavior semantics → **REQUIRED SUB-SKILL:** `feature-design`
    - navigation/routes/context → **REQUIRED SUB-SKILL:** `navigation-design`
    - continuation from an approved UI baseline → **REQUIRED SUB-SKILL:** `ui-continuity`
@@ -31,11 +32,11 @@ Do not use this skill as a replacement for specialist design, documentation, ren
    - PRD-to-design description translation → use `tui-prd-to-descriptions` when appropriate
    - visual execution → use the selected rendering skill (for example Stitch, Pencil, or `huashu-design`)
    - delivery verification → use the appropriate delivery/testing skills
-3. **Protect authority boundaries.** A downstream renderer may propose visuals but may not silently rewrite upstream product contracts.
-4. **Build the design task handoff.** Use [references/design-task-contract.md](references/design-task-contract.md) so every stage consumes the same page ID, source versions, constraints, scenario data, and acceptance criteria.
-5. **Advance one gate at a time.** Candidate generation, preferred direction, product-contract approval, visual-master approval, implementation verification, and archival are distinct states.
-6. **Resume instead of restart.** If the user says “continue”, execute the next approved task unless a missing decision materially blocks it.
-7. **Run consistency review before promotion.** Use `design-guard` when several artifacts must agree.
+4. **Protect authority boundaries.** A downstream renderer may propose visuals but may not silently rewrite upstream product contracts.
+5. **Build the design task handoff.** Use [references/design-task-contract.md](references/design-task-contract.md) so every stage consumes the same page ID, source versions, constraints, scenario data, and acceptance criteria.
+6. **Advance one gate at a time.** Candidate generation, preferred direction, product-contract approval, visual-master approval, implementation verification, and archival are distinct states.
+7. **Resume instead of restart.** If the user says “continue”, execute the next approved task unless a missing decision materially blocks it.
+8. **Run consistency review before promotion.** Use `design-guard` when several artifacts must agree.
 
 Detailed routing is in [references/workflow.md](references/workflow.md).
 
