@@ -38,7 +38,7 @@ The harness never redefines those skills' domain rules.
 
 **Only execute the next transition allowed by the run state.**
 
-Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state. Every successful run revision is also appended to a hash-chained journal so the materialized snapshot can be verified, replayed, recovered, and audited historically. Stable entity audit uses IDs rather than array positions for evidence, artifacts, dispatches, decisions, and invalidations.
+Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state. Every successful run revision is also appended to a hash-chained journal so the materialized snapshot can be verified, replayed, recovered, and audited historically. Stable entity audit uses IDs rather than array positions for evidence, artifacts, dispatches, decisions, and invalidations. Authority impact analysis is cross-run and read-only: it finds runs/entities bound to an exact authority version before any migration is allowed.
 
 A successful tool call is evidence for one step, not permission to skip later gates.
 
@@ -83,7 +83,7 @@ Before a new run, resolve the target project's run ledger by product/version/sur
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-discovery.md](references/run-discovery.md) for run resolution, [references/run-contract.md](references/run-contract.md) for persistent state, [references/journal-replay.md](references/journal-replay.md) for journal integrity/recovery, [references/audit-time-travel.md](references/audit-time-travel.md) for revision-level history, [references/entity-provenance.md](references/entity-provenance.md) for stable-ID provenance, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
+Use [references/run-discovery.md](references/run-discovery.md) for run resolution, [references/run-contract.md](references/run-contract.md) for persistent state, [references/journal-replay.md](references/journal-replay.md) for journal integrity/recovery, [references/audit-time-travel.md](references/audit-time-travel.md) for revision-level history, [references/entity-provenance.md](references/entity-provenance.md) for stable-ID provenance, [references/authority-impact.md](references/authority-impact.md) for cross-run dependency analysis, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
@@ -98,6 +98,8 @@ Use [references/run-discovery.md](references/run-discovery.md) for run resolutio
 - Time travel does not authorize rollback. Restoring old business state must be a new explicit correction/decision, never an overwrite of current history.
 - Prefer stable entity IDs over array-index JSON Pointers for evidence/artifact/dispatch/decision/invalidation audit.
 - Provenance relationships describe recorded references; they do not imply product approval or authority.
+- Authority impact/planning never mutates runs. `complete=false` means at least one run could not be verified, so the result is not exhaustive.
+- A generated authority-change plan remains `applied=false`; execute changes only through a separate explicit correction/migration workflow.
 - No candidate promotion while `design-guard` has blocking `FAIL` or `NEEDS DECISION` findings.
 - No user-approval state without explicit approval for the named scope.
 - No implementation/delivery verification claim from design-render evidence alone.
