@@ -38,7 +38,7 @@ The harness never redefines those skills' domain rules.
 
 **Only execute the next transition allowed by the run state.**
 
-Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state.
+Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state. Every successful run revision is also appended to a hash-chained journal so the materialized snapshot can be verified, replayed, and recovered.
 
 A successful tool call is evidence for one step, not permission to skip later gates.
 
@@ -83,7 +83,7 @@ Before a new run, resolve the target project's run ledger by product/version/sur
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-discovery.md](references/run-discovery.md) for run resolution, [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
+Use [references/run-discovery.md](references/run-discovery.md) for run resolution, [references/run-contract.md](references/run-contract.md) for persistent state, [references/journal-replay.md](references/journal-replay.md) for audit/replay/recovery, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
@@ -92,6 +92,8 @@ Use [references/run-discovery.md](references/run-discovery.md) for run resolutio
 - Expired claims are reclaimable, but an expired owner may not submit evidence until it reclaims the dispatch.
 - A `RunConflictError` means another writer committed first. Reload the run, inspect `next-action`, and retry the business operation from fresh state; never force-write the stale snapshot.
 - Run lock timeout is not evidence that the business operation failed. Do not delete an unexpired lock or overwrite the ledger.
+- A journal integrity failure blocks replay/recovery. Do not truncate or rewrite past events to make verification pass.
+- If the journal is ahead of the materialized snapshot, recover the snapshot before any further workflow mutation.
 - No candidate promotion while `design-guard` has blocking `FAIL` or `NEEDS DECISION` findings.
 - No user-approval state without explicit approval for the named scope.
 - No implementation/delivery verification claim from design-render evidence alone.
