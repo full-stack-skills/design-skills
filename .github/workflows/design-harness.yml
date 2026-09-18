@@ -24,3 +24,11 @@ jobs:
         run: python -m unittest discover -s skills/design-harness/tests -p 'test_*.py'
       - name: Verify CLI loads
         run: python skills/design-harness/scripts/design_harness.py --help
+      - name: Verify SOP profile catalog
+        run: |
+          python skills/design-harness/scripts/design_harness.py profiles
+          python skills/design-harness/scripts/design_harness.py profile --name existing-product-next-page
+      - name: Smoke test profiled run
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start             --store "$STORE"             --product-id smoke             --product-version v1             --surface desktop-web             --scope-type page             --scope-id P01             --profile product-to-ui
