@@ -7,6 +7,7 @@ Pure-stdlib by design so the skill can run in most agent environments.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -48,6 +49,14 @@ class RunAmbiguityError(DesignHarnessError):
 
 
 class RunAuthorityConflictError(DesignHarnessError):
+    pass
+
+
+class JournalIntegrityError(DesignHarnessError):
+    pass
+
+
+class JournalRecoveryError(DesignHarnessError):
     pass
 
 
@@ -433,6 +442,341 @@ def _normalize_evidence(evidence: Dict[str, Any], run_id: str) -> Dict[str, Any]
     return item
 
 
+def run_journal_path(store: Path | str, run_id: str) -> Path:
+    return _runs_dir(store) / f"{run_id}.events.jsonl"
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _sha256_json(value: Any) -> str:
+    return hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
+
+
+def _read_journal_events(
+    store: Path | str,
+    run_id: str,
+) -> list[Dict[str, Any]]:
+    path = run_journal_path(store, run_id)
+    if not path.exists():
+        return []
+    events = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise JournalIntegrityError(
+                f"invalid journal JSON for {run_id} at line {line_number}: {exc}"
+            ) from exc
+        if not isinstance(item, dict):
+            raise JournalIntegrityError(
+                f"journal event for {run_id} at line {line_number} is not an object"
+            )
+        events.append(item)
+    return events
+
+
+def _event_hash_payload(event: Dict[str, Any]) -> Dict[str, Any]:
+    payload = deepcopy(event)
+    payload.pop("event_hash", None)
+    return payload
+
+
+def _build_journal_event(
+    run: Dict[str, Any],
+    *,
+    previous_revision: int,
+    previous_event_hash: Optional[str],
+    event_type: str,
+) -> Dict[str, Any]:
+    snapshot = deepcopy(run)
+    event = {
+        "journal_version": 1,
+        "event_id": f"event_{uuid.uuid4().hex[:12]}",
+        "event_type": event_type,
+        "run_id": run["run_id"],
+        "revision": run["revision"],
+        "previous_revision": previous_revision,
+        "recorded_at": utc_now(),
+        "previous_event_hash": previous_event_hash,
+        "snapshot_hash": _sha256_json(snapshot),
+        "snapshot": snapshot,
+        "cause": (
+            (snapshot.get("history") or [{}])[-1].get("event")
+            if snapshot.get("history")
+            else None
+        ),
+    }
+    event["event_hash"] = hashlib.sha256(
+        _canonical_json_bytes(_event_hash_payload(event))
+    ).hexdigest()
+    return event
+
+
+def _append_journal_event(
+    store: Path | str,
+    run_id: str,
+    event: Dict[str, Any],
+) -> None:
+    path = run_journal_path(store, run_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(
+        event,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ) + "\n"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _bootstrap_journal_if_needed(
+    store: Path | str,
+    persisted: Optional[Dict[str, Any]],
+) -> tuple[int, Optional[str]]:
+    if persisted is None:
+        return 0, None
+
+    run_id = persisted["run_id"]
+    events = _read_journal_events(store, run_id)
+    if events:
+        latest = events[-1]
+        return int(latest["revision"]), latest.get("event_hash")
+
+    revision = int(persisted.get("revision", 0))
+    if revision <= 0:
+        return 0, None
+
+    bootstrap = _build_journal_event(
+        deepcopy(persisted),
+        previous_revision=max(0, revision - 1),
+        previous_event_hash=None,
+        event_type="run.journal-bootstrap",
+    )
+    _append_journal_event(store, run_id, bootstrap)
+    return revision, bootstrap["event_hash"]
+
+
+def verify_run_journal(
+    store: Path | str,
+    run_id: str,
+) -> Dict[str, Any]:
+    path = run_journal_path(store, run_id)
+    if not path.exists():
+        return {
+            "run_id": run_id,
+            "valid": False,
+            "event_count": 0,
+            "latest_revision": None,
+            "latest_event_hash": None,
+            "errors": ["journal file does not exist"],
+        }
+
+    try:
+        events = _read_journal_events(store, run_id)
+    except JournalIntegrityError as exc:
+        return {
+            "run_id": run_id,
+            "valid": False,
+            "event_count": 0,
+            "latest_revision": None,
+            "latest_event_hash": None,
+            "errors": [str(exc)],
+        }
+
+    errors = []
+    previous = None
+    for index, event in enumerate(events):
+        line_number = index + 1
+        revision = event.get("revision")
+        snapshot = event.get("snapshot")
+        if event.get("run_id") != run_id:
+            errors.append(
+                f"line {line_number}: run_id mismatch"
+            )
+        if not isinstance(revision, int) or revision <= 0:
+            errors.append(
+                f"line {line_number}: invalid revision {revision}"
+            )
+            continue
+        if not isinstance(snapshot, dict):
+            errors.append(
+                f"line {line_number}: snapshot missing or invalid"
+            )
+            continue
+        if snapshot.get("run_id") != run_id:
+            errors.append(
+                f"line {line_number}: snapshot run_id mismatch"
+            )
+        if snapshot.get("revision") != revision:
+            errors.append(
+                f"line {line_number}: snapshot revision mismatch"
+            )
+
+        expected_snapshot_hash = _sha256_json(snapshot)
+        if event.get("snapshot_hash") != expected_snapshot_hash:
+            errors.append(
+                f"line {line_number}: snapshot hash mismatch"
+            )
+
+        expected_event_hash = hashlib.sha256(
+            _canonical_json_bytes(_event_hash_payload(event))
+        ).hexdigest()
+        if event.get("event_hash") != expected_event_hash:
+            errors.append(
+                f"line {line_number}: event hash mismatch"
+            )
+
+        if previous is None:
+            if event.get("previous_event_hash") is not None:
+                errors.append(
+                    f"line {line_number}: first event previous hash must be null"
+                )
+            if event.get("previous_revision") != revision - 1:
+                errors.append(
+                    f"line {line_number}: invalid first previous_revision"
+                )
+        else:
+            if revision != previous["revision"] + 1:
+                errors.append(
+                    f"line {line_number}: revision is not contiguous"
+                )
+            if event.get("previous_revision") != previous["revision"]:
+                errors.append(
+                    f"line {line_number}: previous_revision mismatch"
+                )
+            if event.get("previous_event_hash") != previous.get("event_hash"):
+                errors.append(
+                    f"line {line_number}: previous event hash mismatch"
+                )
+        previous = event
+
+    latest = events[-1] if events else None
+    return {
+        "run_id": run_id,
+        "valid": bool(events) and not errors,
+        "event_count": len(events),
+        "latest_revision": latest.get("revision") if latest else None,
+        "latest_event_hash": latest.get("event_hash") if latest else None,
+        "errors": errors,
+    }
+
+
+def replay_run_from_journal(
+    store: Path | str,
+    run_id: str,
+) -> Dict[str, Any]:
+    result = verify_run_journal(store, run_id)
+    if not result["valid"]:
+        raise JournalIntegrityError(
+            f"cannot replay invalid journal for {run_id}: "
+            + "; ".join(result["errors"])
+        )
+    events = _read_journal_events(store, run_id)
+    return deepcopy(events[-1]["snapshot"])
+
+
+def run_journal_summary(
+    store: Path | str,
+    run_id: str,
+) -> Dict[str, Any]:
+    result = verify_run_journal(store, run_id)
+    return {
+        "run_id": run_id,
+        "valid": result["valid"],
+        "event_count": result["event_count"],
+        "latest_revision": result["latest_revision"],
+        "latest_event_hash": result["latest_event_hash"],
+        "errors": result["errors"],
+        "path": str(run_journal_path(store, run_id)),
+    }
+
+
+def _write_materialized_snapshot(
+    path: Path,
+    run: Dict[str, Any],
+) -> None:
+    temp_path = path.with_name(
+        f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    )
+    try:
+        with temp_path.open("w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    run,
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp_path.replace(path)
+    finally:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def recover_run_snapshot(
+    store: Path | str,
+    run_id: str,
+    *,
+    lock_timeout_seconds: float = 2.0,
+    lock_stale_seconds: float = 30.0,
+) -> Dict[str, Any]:
+    replayed = replay_run_from_journal(store, run_id)
+    path = _run_path(store, run_id)
+
+    with _run_write_lock(
+        store,
+        run_id,
+        timeout_seconds=lock_timeout_seconds,
+        stale_seconds=lock_stale_seconds,
+    ):
+        if path.exists():
+            try:
+                current = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                current = None
+            if current is not None:
+                current_revision = current.get("revision", 0)
+                if (
+                    isinstance(current_revision, int)
+                    and current_revision > replayed["revision"]
+                ):
+                    raise JournalRecoveryError(
+                        f"materialized snapshot revision {current_revision} "
+                        f"is newer than journal revision {replayed['revision']} "
+                        f"for {run_id}"
+                    )
+                if (
+                    current_revision == replayed["revision"]
+                    and _sha256_json(current) == _sha256_json(replayed)
+                ):
+                    return deepcopy(current)
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_materialized_snapshot(path, replayed)
+
+    return deepcopy(replayed)
+
+
 def save_run(
     store: Path | str,
     run: Dict[str, Any],
@@ -461,6 +805,7 @@ def save_run(
         timeout_seconds=lock_timeout_seconds,
         stale_seconds=lock_stale_seconds,
     ):
+        persisted = None
         if path.exists():
             try:
                 persisted = json.loads(path.read_text(encoding="utf-8"))
@@ -480,38 +825,44 @@ def save_run(
                 )
             next_revision = current_revision + 1
         else:
+            current_revision = 0
             if expected_revision != 0:
                 raise RunConflictError(
                     f"cannot create {run_id} from revision {expected_revision}"
                 )
+            if run_journal_path(store, run_id).exists():
+                raise JournalRecoveryError(
+                    f"journal exists without materialized snapshot for {run_id}; "
+                    "recover the snapshot before writing"
+                )
             next_revision = 1
+
+        journal_revision, previous_event_hash = _bootstrap_journal_if_needed(
+            store, persisted
+        )
+        if journal_revision != current_revision:
+            raise JournalRecoveryError(
+                f"journal revision {journal_revision} does not match "
+                f"materialized revision {current_revision} for {run_id}; "
+                "verify and recover before writing"
+            )
 
         stored = deepcopy(run)
         stored["revision"] = next_revision
         stored["updated_at"] = utc_now()
 
-        temp_path = path.with_name(
-            f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        event = _build_journal_event(
+            stored,
+            previous_revision=current_revision,
+            previous_event_hash=previous_event_hash,
+            event_type="run.created" if next_revision == 1 else "run.updated",
         )
-        try:
-            with temp_path.open("w", encoding="utf-8") as handle:
-                handle.write(
-                    json.dumps(
-                        stored,
-                        ensure_ascii=False,
-                        indent=2,
-                        sort_keys=True,
-                    )
-                    + "\n"
-                )
-                handle.flush()
-                os.fsync(handle.fileno())
-            temp_path.replace(path)
-        finally:
-            try:
-                temp_path.unlink()
-            except FileNotFoundError:
-                pass
+
+        # Journal first: if snapshot replacement fails, replay/recovery can
+        # reconstruct the committed revision and future writes will stop until
+        # the materialized snapshot is reconciled.
+        _append_journal_event(store, run_id, event)
+        _write_materialized_snapshot(path, stored)
 
     run.clear()
     run.update(deepcopy(stored))
@@ -760,8 +1111,8 @@ def start_run(
         )
 
     run_id = run_id or f"design_{uuid.uuid4().hex[:12]}"
-    if _run_path(store, run_id).exists():
-        raise RunConflictError(f"run already exists: {run_id}")
+    if _run_path(store, run_id).exists() or run_journal_path(store, run_id).exists():
+        raise RunConflictError(f"run or journal already exists: {run_id}")
 
     profile = None
     stage_plan = []
@@ -2068,6 +2419,22 @@ def build_parser() -> argparse.ArgumentParser:
     ensure.add_argument("--profile")
     ensure.add_argument("--run-id")
 
+    journal = sub.add_parser("journal")
+    journal.add_argument("--store", required=True)
+    journal.add_argument("--run-id", required=True)
+
+    verify_journal = sub.add_parser("verify-journal")
+    verify_journal.add_argument("--store", required=True)
+    verify_journal.add_argument("--run-id", required=True)
+
+    replay = sub.add_parser("replay-run")
+    replay.add_argument("--store", required=True)
+    replay.add_argument("--run-id", required=True)
+
+    recover = sub.add_parser("recover-run")
+    recover.add_argument("--store", required=True)
+    recover.add_argument("--run-id", required=True)
+
     return parser
 
 
@@ -2214,6 +2581,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 profile_id=args.profile,
                 run_id=args.run_id,
             )
+        elif args.command == "journal":
+            result = run_journal_summary(args.store, args.run_id)
+        elif args.command == "verify-journal":
+            result = verify_run_journal(args.store, args.run_id)
+        elif args.command == "replay-run":
+            result = replay_run_from_journal(args.store, args.run_id)
+        elif args.command == "recover-run":
+            result = recover_run_snapshot(args.store, args.run_id)
         else:
             parser.error(f"unknown command: {args.command}")
             return 2
