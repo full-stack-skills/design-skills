@@ -11,7 +11,7 @@ import json
 import sys
 import uuid
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
@@ -185,6 +185,35 @@ def _profile_cursor_for_state(run: Dict[str, Any], affected_state: str) -> int:
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _lease_expiry(lease_seconds: int) -> str:
+    if not isinstance(lease_seconds, int) or lease_seconds <= 0:
+        raise ValidationError("lease_seconds must be a positive integer")
+    return (datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)).isoformat()
+
+
+def dispatch_lease_expired(
+    dispatch: Dict[str, Any],
+    *,
+    now: Optional[datetime] = None,
+) -> bool:
+    if dispatch.get("status") != "claimed":
+        return False
+    value = dispatch.get("lease_expires_at")
+    if not value:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return _parse_utc(value) <= current.astimezone(timezone.utc)
 
 
 def _runs_dir(store: Path | str) -> Path:
@@ -433,6 +462,18 @@ def get_next_action(store: Path | str, run_id: str) -> Dict[str, Any]:
     active_dispatch_id = run.get("active_dispatch_id")
     if active_dispatch_id:
         active = _find_dispatch(run, active_dispatch_id)
+        if active.get("status") == "claimed" and dispatch_lease_expired(active):
+            return {
+                "kind": "control",
+                "handler": "design-harness",
+                "operation": "claim-dispatch",
+                "dispatch_id": active["dispatch_id"],
+                "dispatch_status": active["status"],
+                "lease_expired": True,
+                "previous_worker_id": active.get("worker_id"),
+                "lease_expires_at": active.get("lease_expires_at"),
+                "scope": active["scope"],
+            }
         if active.get("status") in {"issued", "claimed"}:
             return {
                 "kind": "inflight",
@@ -441,6 +482,8 @@ def get_next_action(store: Path | str, run_id: str) -> Dict[str, Any]:
                 "dispatch_id": active["dispatch_id"],
                 "dispatch_status": active["status"],
                 "worker_id": active.get("worker_id"),
+                "lease_expired": False,
+                "lease_expires_at": active.get("lease_expires_at"),
                 "evidence_stage": active["evidence_stage"],
                 "target_state": active["target_state"],
                 "scope": active["scope"],
@@ -615,6 +658,9 @@ def issue_dispatch(store: Path | str, run_id: str) -> Dict[str, Any]:
         "status": "issued",
         "worker_id": None,
         "claimed_at": None,
+        "lease_seconds": None,
+        "lease_expires_at": None,
+        "heartbeats": [],
         "releases": [],
         "issued_at": utc_now(),
         "completed_at": None,
@@ -639,9 +685,12 @@ def claim_dispatch(
     dispatch_id: str,
     *,
     worker_id: str,
+    lease_seconds: int = 900,
 ) -> Dict[str, Any]:
     if not worker_id or not worker_id.strip():
         raise ValidationError("worker_id is required")
+    if not isinstance(lease_seconds, int) or lease_seconds <= 0:
+        raise ValidationError("lease_seconds must be a positive integer")
 
     run = load_run(store, run_id)
     if run.get("active_dispatch_id") != dispatch_id:
@@ -652,14 +701,29 @@ def claim_dispatch(
     dispatch = _find_dispatch(run, dispatch_id)
     status = dispatch.get("status")
 
-    if status == "claimed":
+    if status == "claimed" and not dispatch_lease_expired(dispatch):
         if dispatch.get("worker_id") == worker_id:
             return deepcopy(dispatch)
         raise TransitionError(
             f"dispatch {dispatch_id} is already claimed by {dispatch.get('worker_id')}"
         )
 
-    if status != "issued":
+    previous_worker = None
+    if status == "claimed":
+        if not dispatch_lease_expired(dispatch):
+            raise TransitionError(
+                f"dispatch {dispatch_id} is already claimed by {dispatch.get('worker_id')}"
+            )
+        previous_worker = dispatch.get("worker_id")
+        dispatch.setdefault("releases", []).append(
+            {
+                "worker_id": previous_worker,
+                "reason": "lease-expired-reclaim",
+                "released_at": utc_now(),
+                "reclaimed_by": worker_id,
+            }
+        )
+    elif status != "issued":
         raise TransitionError(
             f"dispatch {dispatch_id} cannot be claimed from status {status}"
         )
@@ -667,11 +731,81 @@ def claim_dispatch(
     dispatch["status"] = "claimed"
     dispatch["worker_id"] = worker_id
     dispatch["claimed_at"] = utc_now()
+    dispatch["lease_seconds"] = lease_seconds
+    dispatch["lease_expires_at"] = _lease_expiry(lease_seconds)
+
+    if previous_worker is None:
+        _append_history(
+            run,
+            "dispatch_claimed",
+            dispatch_id=dispatch_id,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
+        )
+    else:
+        _append_history(
+            run,
+            "dispatch_reclaimed",
+            dispatch_id=dispatch_id,
+            previous_worker_id=previous_worker,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
+        )
+
+    save_run(store, run)
+    return deepcopy(dispatch)
+
+
+def heartbeat_dispatch(
+    store: Path | str,
+    run_id: str,
+    dispatch_id: str,
+    *,
+    worker_id: str,
+    lease_seconds: Optional[int] = None,
+) -> Dict[str, Any]:
+    run = load_run(store, run_id)
+    if run.get("active_dispatch_id") != dispatch_id:
+        raise TransitionError(
+            f"dispatch is not active: expected {run.get('active_dispatch_id')}, got {dispatch_id}"
+        )
+
+    dispatch = _find_dispatch(run, dispatch_id)
+    if dispatch.get("status") != "claimed":
+        raise TransitionError(
+            f"dispatch {dispatch_id} is not claimed: {dispatch.get('status')}"
+        )
+    if dispatch.get("worker_id") != worker_id:
+        raise TransitionError(
+            f"dispatch {dispatch_id} is claimed by {dispatch.get('worker_id')}, not {worker_id}"
+        )
+    if dispatch_lease_expired(dispatch):
+        raise TransitionError(
+            f"dispatch {dispatch_id} lease expired; reclaim before heartbeat"
+        )
+
+    seconds = lease_seconds if lease_seconds is not None else dispatch.get("lease_seconds")
+    if not isinstance(seconds, int) or seconds <= 0:
+        raise ValidationError("lease_seconds must be a positive integer")
+
+    previous_expiry = dispatch.get("lease_expires_at")
+    heartbeat_at = utc_now()
+    dispatch["lease_seconds"] = seconds
+    dispatch["lease_expires_at"] = _lease_expiry(seconds)
+    dispatch.setdefault("heartbeats", []).append(
+        {
+            "worker_id": worker_id,
+            "heartbeat_at": heartbeat_at,
+            "previous_lease_expires_at": previous_expiry,
+            "lease_expires_at": dispatch["lease_expires_at"],
+        }
+    )
     _append_history(
         run,
-        "dispatch_claimed",
+        "dispatch_heartbeat",
         dispatch_id=dispatch_id,
         worker_id=worker_id,
+        lease_seconds=seconds,
     )
     save_run(store, run)
     return deepcopy(dispatch)
@@ -714,6 +848,8 @@ def release_dispatch(
     dispatch["status"] = "issued"
     dispatch["worker_id"] = None
     dispatch["claimed_at"] = None
+    dispatch["lease_seconds"] = None
+    dispatch["lease_expires_at"] = None
     _append_history(
         run,
         "dispatch_released",
@@ -747,6 +883,10 @@ def complete_dispatch(
             f"dispatch {dispatch_id} is not completable: {dispatch_status}"
         )
     if dispatch_status == "claimed":
+        if dispatch_lease_expired(dispatch):
+            raise TransitionError(
+                f"dispatch {dispatch_id} lease expired; reclaim before completion"
+            )
         if not worker_id:
             raise TransitionError(
                 f"dispatch {dispatch_id} is claimed by {dispatch.get('worker_id')}; worker_id is required"
@@ -1447,6 +1587,14 @@ def build_parser() -> argparse.ArgumentParser:
     claim.add_argument("--run-id", required=True)
     claim.add_argument("--dispatch-id", required=True)
     claim.add_argument("--worker-id", required=True)
+    claim.add_argument("--lease-seconds", type=int, default=900)
+
+    heartbeat = sub.add_parser("heartbeat-dispatch")
+    heartbeat.add_argument("--store", required=True)
+    heartbeat.add_argument("--run-id", required=True)
+    heartbeat.add_argument("--dispatch-id", required=True)
+    heartbeat.add_argument("--worker-id", required=True)
+    heartbeat.add_argument("--lease-seconds", type=int)
 
     release = sub.add_parser("release-dispatch")
     release.add_argument("--store", required=True)
@@ -1555,6 +1703,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.run_id,
                 args.dispatch_id,
                 worker_id=args.worker_id,
+                lease_seconds=args.lease_seconds,
+            )
+        elif args.command == "heartbeat-dispatch":
+            result = heartbeat_dispatch(
+                args.store,
+                args.run_id,
+                args.dispatch_id,
+                worker_id=args.worker_id,
+                lease_seconds=args.lease_seconds,
             )
         elif args.command == "release-dispatch":
             result = release_dispatch(
