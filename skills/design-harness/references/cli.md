@@ -365,3 +365,42 @@ Do not edit the JSON manually to lower the revision and do not force overwrite.
 A `RunLockTimeoutError` means the short storage lock could not be acquired before its timeout. It does **not** prove the product/design operation failed. Retry after rereading status.
 
 Run lock files are runtime internals. Only locks older than the configured stale threshold are automatically recovered.
+
+
+## Journal, replay, and recovery
+
+Inspect journal metadata:
+
+```bash
+python skills/design-harness/scripts/design_harness.py journal \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Verify the hash/revision chain:
+
+```bash
+python skills/design-harness/scripts/design_harness.py verify-journal \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Replay the latest committed snapshot:
+
+```bash
+python skills/design-harness/scripts/design_harness.py replay-run \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Restore a missing/corrupt materialized snapshot without creating a new revision:
+
+```bash
+python skills/design-harness/scripts/design_harness.py recover-run \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Recovery requires a valid journal. If the materialized snapshot is newer than the journal, recovery refuses to overwrite it.
+
+See [journal-replay.md](journal-replay.md).
