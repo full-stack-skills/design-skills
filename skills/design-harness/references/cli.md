@@ -14,6 +14,15 @@ Store run ledgers inside the target project, for example:
 
 Do not store secrets, cookies, tokens, or large binary/base64 artifacts in the ledger. Store stable references and evidence metadata.
 
+## Discover SOP profiles
+
+```bash
+python skills/design-harness/scripts/design_harness.py profiles
+python skills/design-harness/scripts/design_harness.py profile --name product-to-ui
+```
+
+See [profiles.md](profiles.md) for selection rules.
+
 ## Start
 
 ```bash
@@ -24,12 +33,13 @@ python skills/design-harness/scripts/design_harness.py start \
   --surface desktop-web \
   --scope-type page \
   --scope-id P01 \
+  --profile product-to-ui \
   --authority feature_contract=feature@v1 \
   --authority navigation_contract=navigation@v3 \
   --authority baseline=shell@v2
 ```
 
-The new run starts in `INIT`.
+The new run starts in `INIT`. When a profile is selected, the run ledger pins the profile ID/version and copies its ordered stage plan. Required authority bindings are validated before creation.
 
 ## Status
 
