@@ -155,3 +155,18 @@ Both writers load the same JSON file and use last-write-wins replacement. The la
 **Expected behavior with the skill**
 
 Every persisted run has a monotonically increasing `revision`. Writes acquire a short-lived run lock and perform compare-and-swap against the on-disk revision. Exactly one stale-snapshot writer can commit; another receives an explicit `RunConflictError`, reloads the run, and recomputes its action. Atomic replacement prevents partial JSON writes. A stale orphan lock may be recovered only after its bounded lock TTL.
+
+
+## RED-11 — Lost run ID creates duplicate active design runs
+
+**Prompt**
+
+> Continue yesterday's P01 design. I do not remember the run ID, but the same product/version/surface/page/profile is known.
+
+**Observed baseline failure**
+
+The agent treats missing `run_id` as permission to start another run. Two active runs then diverge on approvals, artifacts, evidence, or baseline.
+
+**Expected behavior with the skill**
+
+Resolve the bounded run identity through the registry. `ensure-run` reuses one unique active match or creates one only when none exists. Multiple active matches raise `RunAmbiguityError`. If explicitly provided authority bindings differ from the existing run, raise `RunAuthorityConflictError` instead of silently reusing or forking.
