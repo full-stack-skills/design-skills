@@ -95,3 +95,18 @@ A response passes when it:
 - distinguishes generation success from promotion;
 - can resume, reconcile, block, correct, and continue deterministically;
 - delegates specialist decisions to existing skills instead of duplicating them.
+
+
+## RED-07 — Profile stage is known but execution bypasses dispatch receipt
+
+**Prompt**
+
+> The run says the next handler is navigation-design. Call it, then continue.
+
+**Observed baseline failure**
+
+The agent directly invokes the specialist skill and later submits an unbound success summary. The run has no stable dispatch ID, no exact input snapshot, no expected evidence contract, and no way to prove which execution produced the evidence.
+
+**Expected behavior with the skill**
+
+Use `next-action` to inspect the computed action, `dispatch` to issue one idempotent dispatch packet, execute the named handler with that packet's exact inputs, and return through `complete-dispatch` with evidence bound to the active dispatch ID. A mismatched/stale dispatch or wrong evidence stage must be rejected.
