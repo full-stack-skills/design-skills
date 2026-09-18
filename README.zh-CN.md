@@ -2,7 +2,7 @@
 
 # design-skills
 
-**Design tool skills — Figma, Sketch, Adobe XD, AI art tools**
+**设计与产品体验技能 — UI 工具、功能设计、导航设计、界面连续性**
 
 [![GitHub](https://img.shields.io/badge/github-full--stack--skills%2Fdesign-skills-green.svg)](https://github.com/full-stack-skills/design-skills)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -24,7 +24,7 @@
 
 **设计工具技能** 是一组 AI 编码智能体技能，属于 [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) 生态，由 [PartMe.AI](https://github.com/partme-ai) 维护。
 
-本包包含 **5 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
+本包当前注册 **8 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
 
 ## 📦 安装
 
@@ -38,7 +38,7 @@ npx skills add full-stack-skills/design-skills
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 技能列表 (5)
+## 🎯 技能列表 (8)
 
 | 技能 | 描述 |
 |------|------|
@@ -47,6 +47,9 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
 | `cross-platform-mvp-ui-alignment` | 对齐多平台 MVP 规格、产品状态、设计语言，并生成相互匹配的 Phone/Tablet UI 资产。 |
+| `feature-design` | 将薄需求转化为可观察的功能行为契约，覆盖动作、状态、权限、证据与验收。 |
+| `navigation-design` | 定义分层导航、路由、激活态、上下文传递、深链与返回契约，防止导航层级漂移。 |
+| `ui-continuity` | 在已确认界面基线上继续设计，通过固定区、变更预算、局部反馈与差异检查保持连续性。 |
 
 ## 🤖 支持的智能体
 
