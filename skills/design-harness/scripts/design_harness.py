@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 import uuid
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +32,14 @@ class ValidationError(DesignHarnessError):
 
 
 class TransitionError(DesignHarnessError):
+    pass
+
+
+class RunConflictError(DesignHarnessError):
+    pass
+
+
+class RunLockTimeoutError(DesignHarnessError):
     pass
 
 
@@ -220,6 +231,77 @@ def _runs_dir(store: Path | str) -> Path:
     return Path(store) / "runs"
 
 
+def run_lock_path(store: Path | str, run_id: str) -> Path:
+    return _runs_dir(store) / f"{run_id}.lock"
+
+
+@contextmanager
+def _run_write_lock(
+    store: Path | str,
+    run_id: str,
+    *,
+    timeout_seconds: float = 2.0,
+    stale_seconds: float = 30.0,
+):
+    if timeout_seconds < 0:
+        raise ValidationError("lock timeout must be non-negative")
+    if stale_seconds <= 0:
+        raise ValidationError("lock stale threshold must be positive")
+
+    directory = _runs_dir(store)
+    directory.mkdir(parents=True, exist_ok=True)
+    lock_path = run_lock_path(store, run_id)
+    deadline = time.monotonic() + timeout_seconds
+    fd = None
+
+    while fd is None:
+        try:
+            fd = os.open(
+                lock_path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                0o600,
+            )
+            payload = json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "created_at": utc_now(),
+                    "run_id": run_id,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ).encode("utf-8")
+            os.write(fd, payload)
+            os.fsync(fd)
+        except FileExistsError:
+            try:
+                age = time.time() - lock_path.stat().st_mtime
+            except FileNotFoundError:
+                continue
+
+            if age >= stale_seconds:
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+
+            if time.monotonic() >= deadline:
+                raise RunLockTimeoutError(
+                    f"timed out acquiring run lock for {run_id}"
+                )
+            time.sleep(min(0.01, max(0.0, deadline - time.monotonic())))
+
+    try:
+        yield lock_path
+    finally:
+        if fd is not None:
+            os.close(fd)
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def _run_path(store: Path | str, run_id: str) -> Path:
     return _runs_dir(store) / f"{run_id}.json"
 
@@ -279,22 +361,89 @@ def _normalize_evidence(evidence: Dict[str, Any], run_id: str) -> Dict[str, Any]
     return item
 
 
-def save_run(store: Path | str, run: Dict[str, Any]) -> Dict[str, Any]:
+def save_run(
+    store: Path | str,
+    run: Dict[str, Any],
+    *,
+    lock_timeout_seconds: float = 2.0,
+    lock_stale_seconds: float = 30.0,
+) -> Dict[str, Any]:
     if "run_id" not in run:
         raise ValidationError("run_id is required")
     _validate_state(run["state"])
 
+    run_id = run["run_id"]
+    expected_revision = run.get("revision", 0)
+    if not isinstance(expected_revision, int) or expected_revision < 0:
+        raise RunConflictError(
+            f"invalid expected revision for {run_id}: {expected_revision}"
+        )
+
     directory = _runs_dir(store)
     directory.mkdir(parents=True, exist_ok=True)
-    path = _run_path(store, run["run_id"])
-    run["updated_at"] = utc_now()
-    temp_path = path.with_suffix(".json.tmp")
-    temp_path.write_text(
-        json.dumps(run, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-    return deepcopy(run)
+    path = _run_path(store, run_id)
+
+    with _run_write_lock(
+        store,
+        run_id,
+        timeout_seconds=lock_timeout_seconds,
+        stale_seconds=lock_stale_seconds,
+    ):
+        if path.exists():
+            try:
+                persisted = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValidationError(
+                    f"invalid persisted run JSON for {run_id}: {exc}"
+                ) from exc
+            current_revision = persisted.get("revision", 0)
+            if not isinstance(current_revision, int) or current_revision < 0:
+                raise ValidationError(
+                    f"invalid persisted revision for {run_id}: {current_revision}"
+                )
+            if current_revision != expected_revision:
+                raise RunConflictError(
+                    f"run revision conflict for {run_id}: "
+                    f"expected {expected_revision}, current {current_revision}"
+                )
+            next_revision = current_revision + 1
+        else:
+            if expected_revision != 0:
+                raise RunConflictError(
+                    f"cannot create {run_id} from revision {expected_revision}"
+                )
+            next_revision = 1
+
+        stored = deepcopy(run)
+        stored["revision"] = next_revision
+        stored["updated_at"] = utc_now()
+
+        temp_path = path.with_name(
+            f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        )
+        try:
+            with temp_path.open("w", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(
+                        stored,
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+                handle.flush()
+                os.fsync(handle.fileno())
+            temp_path.replace(path)
+        finally:
+            try:
+                temp_path.unlink()
+            except FileNotFoundError:
+                pass
+
+    run.clear()
+    run.update(deepcopy(stored))
+    return deepcopy(stored)
 
 
 def load_run(store: Path | str, run_id: str) -> Dict[str, Any]:
@@ -303,6 +452,12 @@ def load_run(store: Path | str, run_id: str) -> Dict[str, Any]:
         raise RunNotFoundError(f"run not found: {run_id}")
     run = json.loads(path.read_text(encoding="utf-8"))
     _validate_state(run["state"])
+    revision = run.get("revision", 0)
+    if not isinstance(revision, int) or revision < 0:
+        raise ValidationError(
+            f"invalid persisted revision for {run_id}: {revision}"
+        )
+    run.setdefault("revision", revision)
     return run
 
 
@@ -328,7 +483,7 @@ def start_run(
 
     run_id = run_id or f"design_{uuid.uuid4().hex[:12]}"
     if _run_path(store, run_id).exists():
-        raise ValidationError(f"run already exists: {run_id}")
+        raise RunConflictError(f"run already exists: {run_id}")
 
     profile = None
     stage_plan = []
@@ -362,6 +517,7 @@ def start_run(
     now = utc_now()
     run = {
         "schema_version": 1,
+        "revision": 0,
         "run_id": run_id,
         "product_id": product_id,
         "product_version": product_version,
