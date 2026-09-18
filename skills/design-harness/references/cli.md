@@ -490,3 +490,35 @@ python skills/design-harness/scripts/design_harness.py provenance \
 ```
 
 All entity-audit commands verify the journal first. See [entity-provenance.md](entity-provenance.md).
+
+
+## Cross-run authority impact
+
+Find active runs and entities that still depend on one exact authority version:
+
+```bash
+python skills/design-harness/scripts/design_harness.py authority-impact \
+  --store <project>/.design-harness \
+  --key baseline \
+  --value shell@v2
+```
+
+Include archived/cancelled runs only for audit:
+
+```bash
+--include-terminal
+```
+
+Plan a potential migration without applying it:
+
+```bash
+python skills/design-harness/scripts/design_harness.py plan-authority-change \
+  --store <project>/.design-harness \
+  --key baseline \
+  --from shell@v2 \
+  --to shell@v3
+```
+
+The result includes affected run revisions, dependent stable entity IDs, a recommended revalidation state, and a deterministic `plan_id`. The plan always remains `applied=false`.
+
+See [authority-impact.md](authority-impact.md).
