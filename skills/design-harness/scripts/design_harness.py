@@ -1989,12 +1989,12 @@ def apply_authority_change_set(
             for item in change_set["run_changes"]
         )
 
-        for item in change_set["run_changes"]:
+        for index in range(len(change_set["run_changes"])):
+            item = change_set["run_changes"][index]
             if item.get("status") == "APPLIED":
                 continue
             item["status"] = "PENDING"
             item["error"] = None
-            _write_change_set(store, change_set)
             try:
                 migrated = migrate_run_authority(
                     store,
