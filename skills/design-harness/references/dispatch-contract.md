@@ -266,3 +266,69 @@ While an active dispatch is `issued` or `claimed`, `next-action` returns `kind=i
 - target state.
 
 This prevents resume/re-entry flows from mistaking already-dispatched work for new work.
+
+
+## Worker lease and heartbeat
+
+A worker claim is a **lease**, not permanent ownership.
+
+Default claim:
+
+```bash
+python skills/design-harness/scripts/design_harness.py claim-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a
+```
+
+The default lease is 900 seconds. Override it when necessary:
+
+```bash
+--lease-seconds 300
+```
+
+A claimed dispatch records:
+- `lease_seconds`;
+- `lease_expires_at`;
+- `heartbeats[]`.
+
+For long-running work, the owner renews its lease:
+
+```bash
+python skills/design-harness/scripts/design_harness.py heartbeat-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --lease-seconds 900
+```
+
+Heartbeat rules:
+- only the current worker may heartbeat;
+- an expired lease cannot be revived by heartbeat;
+- each heartbeat records previous/new expiry;
+- heartbeat changes ownership time only, never the dispatch identity or input contract.
+
+### Expired reclaim
+
+If the worker disappears and the lease expires, `next-action` returns a control action with:
+
+```text
+kind = control
+operation = claim-dispatch
+lease_expired = true
+previous_worker_id = <old worker>
+```
+
+Another worker may then call `claim-dispatch` on the **same dispatch ID**.
+
+Reclaim:
+- records a release receipt with reason `lease-expired-reclaim`;
+- records `reclaimed_by`;
+- assigns a fresh lease to the new worker;
+- preserves all original dispatch provenance.
+
+An expired owner cannot call `complete-dispatch`. It must first reclaim the dispatch if nobody else owns it.
+
+This avoids two unsafe outcomes: permanent orphaned work and silent duplicate execution.
