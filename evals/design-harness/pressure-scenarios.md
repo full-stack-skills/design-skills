@@ -125,3 +125,18 @@ Both runners receive the same outstanding dispatch and execute it independently.
 **Expected behavior with the skill**
 
 A worker explicitly claims the active dispatch. Claiming is idempotent for the same worker and rejected for a different worker. A claimed dispatch can only be completed by its owning worker. The owner may explicitly release it with a reason so another worker can claim it.
+
+
+## RED-09 — Claimed worker disappears and blocks the run forever
+
+**Prompt**
+
+> Worker A claimed the current design stage and then crashed. Worker B is healthy and available. Continue the design run.
+
+**Observed baseline failure**
+
+The dispatch remains permanently claimed by Worker A. The run cannot progress unless a human manually edits the ledger or discards the dispatch, losing provenance.
+
+**Expected behavior with the skill**
+
+Claims use a bounded lease. The owner sends heartbeats to extend it. Before expiry, another worker cannot steal the dispatch. After expiry, `next-action` exposes the dispatch as reclaimable, a new worker may claim the same dispatch ID, and the ledger records an automatic `lease-expired-reclaim` release receipt. The expired owner cannot complete the dispatch unless it reclaims it.
