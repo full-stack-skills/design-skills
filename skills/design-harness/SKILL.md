@@ -40,9 +40,19 @@ The harness never redefines those skills' domain rules.
 
 A successful tool call is evidence for one step, not permission to skip later gates.
 
+## Runtime entry
+
+Use the bundled pure-stdlib runtime for multi-step execution:
+
+```bash
+python skills/design-harness/scripts/design_harness.py status --store <project>/.design-harness --run-id <run-id>
+```
+
+Before a new run, search the target project's run ledger for the same bounded scope. Existing runs are resumed rather than duplicated. Full commands and payloads are in [references/cli.md](references/cli.md).
+
 ## Run lifecycle
 
-1. **Start or resume.** Find the existing run for the requested scope before creating a new one.
+1. **Start or resume.** Use the runtime `status`/ledger before creating a new run for the requested scope.
 2. **Reconcile authority.** Bind the run to versioned feature, navigation, baseline, and task contracts.
 3. **Plan the next transition.** Use `product-design` routing and the state machine in [references/state-machine.md](references/state-machine.md).
 4. **Execute one specialist step.** Record its input contract and returned artifact/evidence.
@@ -51,7 +61,7 @@ A successful tool call is evidence for one step, not permission to skip later ga
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-contract.md](references/run-contract.md) for persistent state and [references/evidence-contract.md](references/evidence-contract.md) for receipts.
+Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
@@ -86,7 +96,7 @@ Stop and report current run state when:
 - a blocking guard finding remains;
 - the requested action would skip a stage gate.
 
-Return: `run_id`, current state, completed gates, blocked/invalidated gates, next allowed action, and evidence required.
+Return: `run_id`, current state, completed gates, blocked/invalidated gates, next allowed action, and evidence required. When the runtime is available, derive these fields from the persisted ledger rather than reconstructing them from conversation memory.
 
 ## Output contract
 
