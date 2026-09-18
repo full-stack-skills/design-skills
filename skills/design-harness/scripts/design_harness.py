@@ -60,6 +60,10 @@ class JournalRecoveryError(DesignHarnessError):
     pass
 
 
+class JournalRevisionNotFoundError(DesignHarnessError):
+    pass
+
+
 PRIMARY_STATES = [
     "INIT",
     "BASELINE_BOUND",
@@ -702,6 +706,244 @@ def run_journal_summary(
         "latest_event_hash": result["latest_event_hash"],
         "errors": result["errors"],
         "path": str(run_journal_path(store, run_id)),
+    }
+
+
+def _verified_journal_events(
+    store: Path | str,
+    run_id: str,
+) -> list[Dict[str, Any]]:
+    result = verify_run_journal(store, run_id)
+    if not result["valid"]:
+        raise JournalIntegrityError(
+            f"invalid journal for {run_id}: "
+            + "; ".join(result["errors"])
+        )
+    return _read_journal_events(store, run_id)
+
+
+def run_at_revision(
+    store: Path | str,
+    run_id: str,
+    revision: int,
+) -> Dict[str, Any]:
+    if not isinstance(revision, int) or revision <= 0:
+        raise ValidationError("revision must be a positive integer")
+
+    for event in _verified_journal_events(store, run_id):
+        if event.get("revision") == revision:
+            return deepcopy(event["snapshot"])
+
+    raise JournalRevisionNotFoundError(
+        f"run {run_id} has no journal revision {revision}"
+    )
+
+
+def _json_pointer_escape(value: str) -> str:
+    return value.replace("~", "~0").replace("/", "~1")
+
+
+def _diff_values(
+    before: Any,
+    after: Any,
+    *,
+    path: str,
+    changes: list[Dict[str, Any]],
+    ignore_volatile: bool,
+) -> None:
+    volatile_paths = {"/revision", "/updated_at"}
+    if ignore_volatile and path in volatile_paths:
+        return
+
+    if isinstance(before, dict) and isinstance(after, dict):
+        keys = sorted(set(before) | set(after))
+        for key in keys:
+            child_path = f"{path}/{_json_pointer_escape(str(key))}"
+            if key not in before:
+                if not (ignore_volatile and child_path in volatile_paths):
+                    changes.append(
+                        {
+                            "path": child_path,
+                            "kind": "added",
+                            "before": None,
+                            "after": deepcopy(after[key]),
+                        }
+                    )
+            elif key not in after:
+                if not (ignore_volatile and child_path in volatile_paths):
+                    changes.append(
+                        {
+                            "path": child_path,
+                            "kind": "removed",
+                            "before": deepcopy(before[key]),
+                            "after": None,
+                        }
+                    )
+            else:
+                _diff_values(
+                    before[key],
+                    after[key],
+                    path=child_path,
+                    changes=changes,
+                    ignore_volatile=ignore_volatile,
+                )
+        return
+
+    if before != after:
+        changes.append(
+            {
+                "path": path or "/",
+                "kind": "changed",
+                "before": deepcopy(before),
+                "after": deepcopy(after),
+            }
+        )
+
+
+def diff_run_revisions(
+    store: Path | str,
+    run_id: str,
+    from_revision: int,
+    to_revision: int,
+    *,
+    ignore_volatile: bool = False,
+) -> Dict[str, Any]:
+    before = run_at_revision(store, run_id, from_revision)
+    after = run_at_revision(store, run_id, to_revision)
+    changes: list[Dict[str, Any]] = []
+    _diff_values(
+        before,
+        after,
+        path="",
+        changes=changes,
+        ignore_volatile=ignore_volatile,
+    )
+    return {
+        "run_id": run_id,
+        "from_revision": from_revision,
+        "to_revision": to_revision,
+        "ignore_volatile": ignore_volatile,
+        "change_count": len(changes),
+        "changes": changes,
+    }
+
+
+def run_audit_timeline(
+    store: Path | str,
+    run_id: str,
+    *,
+    from_revision: Optional[int] = None,
+    to_revision: Optional[int] = None,
+) -> list[Dict[str, Any]]:
+    if from_revision is not None and from_revision <= 0:
+        raise ValidationError("from_revision must be positive")
+    if to_revision is not None and to_revision <= 0:
+        raise ValidationError("to_revision must be positive")
+    if (
+        from_revision is not None
+        and to_revision is not None
+        and from_revision > to_revision
+    ):
+        raise ValidationError("from_revision cannot exceed to_revision")
+
+    rows = []
+    for event in _verified_journal_events(store, run_id):
+        revision = event["revision"]
+        if from_revision is not None and revision < from_revision:
+            continue
+        if to_revision is not None and revision > to_revision:
+            continue
+
+        snapshot = event["snapshot"]
+        rows.append(
+            {
+                "revision": revision,
+                "previous_revision": event.get("previous_revision"),
+                "event_type": event.get("event_type"),
+                "recorded_at": event.get("recorded_at"),
+                "event_hash": event.get("event_hash"),
+                "snapshot_hash": event.get("snapshot_hash"),
+                "cause": event.get("cause"),
+                "state": snapshot.get("state"),
+                "profile_id": (snapshot.get("profile") or {}).get("id"),
+                "profile_version": (snapshot.get("profile") or {}).get("version"),
+                "artifact_count": len(snapshot.get("artifacts") or []),
+                "evidence_count": len(snapshot.get("evidence") or []),
+                "dispatch_count": len(snapshot.get("dispatches") or []),
+                "decision_count": len(snapshot.get("decisions") or []),
+                "invalidation_count": len(snapshot.get("invalidations") or []),
+            }
+        )
+    return rows
+
+
+def _json_pointer_get(
+    value: Any,
+    pointer: str,
+) -> tuple[bool, Any]:
+    if pointer == "":
+        return True, deepcopy(value)
+    if not pointer.startswith("/"):
+        raise ValidationError(
+            "trace path must be a JSON Pointer starting with '/'"
+        )
+
+    current = value
+    for raw_part in pointer.split("/")[1:]:
+        part = raw_part.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, dict):
+            if part not in current:
+                return False, None
+            current = current[part]
+        elif isinstance(current, list):
+            if not part.isdigit():
+                return False, None
+            index = int(part)
+            if index < 0 or index >= len(current):
+                return False, None
+            current = current[index]
+        else:
+            return False, None
+    return True, deepcopy(current)
+
+
+def trace_run_path(
+    store: Path | str,
+    run_id: str,
+    path: str,
+) -> Dict[str, Any]:
+    events = _verified_journal_events(store, run_id)
+    changes = []
+    previous_exists = None
+    previous_value = None
+
+    for event in events:
+        snapshot = event["snapshot"]
+        exists, value = _json_pointer_get(snapshot, path)
+        if (
+            previous_exists is None
+            or exists != previous_exists
+            or value != previous_value
+        ):
+            changes.append(
+                {
+                    "revision": event["revision"],
+                    "exists": exists,
+                    "value": value,
+                    "state": snapshot.get("state"),
+                    "cause": event.get("cause"),
+                    "recorded_at": event.get("recorded_at"),
+                    "event_hash": event.get("event_hash"),
+                }
+            )
+            previous_exists = exists
+            previous_value = deepcopy(value)
+
+    return {
+        "run_id": run_id,
+        "path": path,
+        "change_count": len(changes),
+        "changes": changes,
     }
 
 
@@ -2435,6 +2677,29 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--store", required=True)
     recover.add_argument("--run-id", required=True)
 
+    snapshot_at = sub.add_parser("snapshot-at")
+    snapshot_at.add_argument("--store", required=True)
+    snapshot_at.add_argument("--run-id", required=True)
+    snapshot_at.add_argument("--revision", required=True, type=int)
+
+    diff_revisions = sub.add_parser("diff-revisions")
+    diff_revisions.add_argument("--store", required=True)
+    diff_revisions.add_argument("--run-id", required=True)
+    diff_revisions.add_argument("--from-revision", required=True, type=int)
+    diff_revisions.add_argument("--to-revision", required=True, type=int)
+    diff_revisions.add_argument("--ignore-volatile", action="store_true")
+
+    timeline = sub.add_parser("timeline")
+    timeline.add_argument("--store", required=True)
+    timeline.add_argument("--run-id", required=True)
+    timeline.add_argument("--from-revision", type=int)
+    timeline.add_argument("--to-revision", type=int)
+
+    trace = sub.add_parser("trace-path")
+    trace.add_argument("--store", required=True)
+    trace.add_argument("--run-id", required=True)
+    trace.add_argument("--path", required=True)
+
     return parser
 
 
@@ -2589,6 +2854,36 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             result = replay_run_from_journal(args.store, args.run_id)
         elif args.command == "recover-run":
             result = recover_run_snapshot(args.store, args.run_id)
+        elif args.command == "snapshot-at":
+            result = run_at_revision(
+                args.store,
+                args.run_id,
+                args.revision,
+            )
+        elif args.command == "diff-revisions":
+            result = diff_run_revisions(
+                args.store,
+                args.run_id,
+                args.from_revision,
+                args.to_revision,
+                ignore_volatile=args.ignore_volatile,
+            )
+        elif args.command == "timeline":
+            result = {
+                "run_id": args.run_id,
+                "timeline": run_audit_timeline(
+                    args.store,
+                    args.run_id,
+                    from_revision=args.from_revision,
+                    to_revision=args.to_revision,
+                ),
+            }
+        elif args.command == "trace-path":
+            result = trace_run_path(
+                args.store,
+                args.run_id,
+                args.path,
+            )
         else:
             parser.error(f"unknown command: {args.command}")
             return 2
