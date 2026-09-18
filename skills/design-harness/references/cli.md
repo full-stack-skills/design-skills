@@ -14,6 +14,44 @@ Store run ledgers inside the target project, for example:
 
 Do not store secrets, cookies, tokens, or large binary/base64 artifacts in the ledger. Store stable references and evidence metadata.
 
+## Discover and ensure runs
+
+List compact run summaries:
+
+```bash
+python skills/design-harness/scripts/design_harness.py runs \
+  --store <project>/.design-harness
+```
+
+Find a bounded scope:
+
+```bash
+python skills/design-harness/scripts/design_harness.py find-run \
+  --store <project>/.design-harness \
+  --product-id example \
+  --product-version v1 \
+  --surface desktop-web \
+  --scope-type page \
+  --scope-id P01 \
+  --profile product-to-ui \
+  --active-only
+```
+
+Atomically reuse-or-create:
+
+```bash
+python skills/design-harness/scripts/design_harness.py ensure-run \
+  --store <project>/.design-harness \
+  --product-id example \
+  --product-version v1 \
+  --surface desktop-web \
+  --scope-type page \
+  --scope-id P01 \
+  --profile product-to-ui
+```
+
+See [run-discovery.md](run-discovery.md) for ambiguity and authority-drift behavior.
+
 ## Discover SOP profiles
 
 ```bash
