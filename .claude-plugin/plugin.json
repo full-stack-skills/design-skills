@@ -1,6 +1,6 @@
 {
   "name": "design-skills",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Design tools and product experience skills",
   "author": {
     "name": "PartMe.AI",
@@ -19,6 +19,7 @@
     "./skills/navigation-design",
     "./skills/ui-continuity",
     "./skills/product-design",
-    "./skills/design-guard"
+    "./skills/design-guard",
+    "./skills/design-harness"
   ]
 }
