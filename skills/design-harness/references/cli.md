@@ -212,3 +212,34 @@ python skills/design-harness/scripts/design_harness.py batch-approve \
 ```
 
 See [batch-runs.md](batch-runs.md) for parent/child ownership, failure isolation, and shared-baseline rules.
+
+
+## Automatic next action and dispatch
+
+Inspect the runtime-computed next action:
+
+```bash
+python skills/design-harness/scripts/design_harness.py next-action \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+When `kind=dispatch`, issue the specialist handoff:
+
+```bash
+python skills/design-harness/scripts/design_harness.py dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Execute the returned `handler` with the packet's exact inputs. Then bind the result back:
+
+```bash
+python skills/design-harness/scripts/design_harness.py complete-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --evidence-json @/tmp/evidence.json
+```
+
+Do not call `dispatch` when the computed action is a control, human, verification, or done action. See [dispatch-contract.md](dispatch-contract.md).
