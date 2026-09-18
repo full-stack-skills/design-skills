@@ -1,6 +1,6 @@
 {
   "name": "design-skills",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Design tools and product experience skills",
   "author": {
     "name": "PartMe.AI",
@@ -17,6 +17,8 @@
     "./skills/cross-platform-mvp-ui-alignment",
     "./skills/feature-design",
     "./skills/navigation-design",
-    "./skills/ui-continuity"
+    "./skills/ui-continuity",
+    "./skills/product-design",
+    "./skills/design-guard"
   ]
 }
