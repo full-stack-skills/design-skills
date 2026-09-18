@@ -280,3 +280,32 @@ python skills/design-harness/scripts/design_harness.py release-dispatch \
 ```
 
 A second worker cannot steal a claimed dispatch. It may claim the dispatch only after an explicit release.
+
+
+## Heartbeat and expired reclaim
+
+Claims default to a 900-second lease:
+
+```bash
+python skills/design-harness/scripts/design_harness.py claim-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --lease-seconds 900
+```
+
+Renew a long-running claim:
+
+```bash
+python skills/design-harness/scripts/design_harness.py heartbeat-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --lease-seconds 900
+```
+
+After expiry, `next-action` marks the active dispatch reclaimable. Another worker uses the normal `claim-dispatch` command with the same dispatch ID. The runtime records the expired takeover automatically.
+
+Do not try to complete work with an expired lease.
