@@ -326,6 +326,9 @@ def start_run(
         "surface": surface,
         "scope_type": scope_type,
         "scope_ids": scope_ids,
+        "parent_run_id": None,
+        "children": [],
+        "shared_baseline": None,
         "state": "INIT",
         "profile": profile,
         "stage_plan": stage_plan,
@@ -589,6 +592,215 @@ def correct_run(
     return save_run(store, run)
 
 
+def _require_batch_parent(run: Dict[str, Any]) -> None:
+    profile = run.get("profile") or {}
+    if profile.get("id") != "page-family-batch":
+        raise TransitionError("batch operation requires page-family-batch profile")
+    if profile.get("parallel_policy") != "shared-baseline":
+        raise TransitionError("batch parent must use shared-baseline parallel policy")
+
+
+def spawn_child_runs(
+    store: Path | str,
+    parent_run_id: str,
+    scope_ids: Iterable[str],
+    *,
+    authority_overrides: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    parent = load_run(store, parent_run_id)
+    _require_batch_parent(parent)
+    if parent["state"] not in PRIMARY_STATES or _state_index(parent["state"]) < _state_index("BASELINE_BOUND"):
+        raise TransitionError("batch children require parent baseline to be bound")
+
+    child_scope_ids = [str(item) for item in scope_ids if str(item).strip()]
+    if not child_scope_ids:
+        raise ValidationError("at least one child scope id is required")
+    if len(child_scope_ids) != len(set(child_scope_ids)):
+        raise ValidationError("duplicate child scope ids in request")
+
+    existing = {item["scope_id"] for item in parent.get("children", [])}
+    duplicates = sorted(existing.intersection(child_scope_ids))
+    if duplicates:
+        raise ValidationError(
+            f"child scope already exists: {', '.join(duplicates)}"
+        )
+
+    baseline = parent.get("authorities", {}).get("baseline")
+    if not baseline:
+        raise ValidationError("page-family-batch requires baseline authority")
+
+    overrides = deepcopy(authority_overrides or {})
+    if "baseline" in overrides and overrides["baseline"] != baseline:
+        raise ValidationError(
+            f"child baseline override must match shared baseline {baseline}"
+        )
+
+    profile_def = load_profile("page-family-batch")
+    child_profile = profile_def.get("child_profile") or "existing-product-next-page"
+    created = []
+
+    for scope_id in child_scope_ids:
+        authorities = deepcopy(parent.get("authorities") or {})
+        authorities.update(overrides)
+        authorities["baseline"] = baseline
+
+        child = start_run(
+            store=store,
+            product_id=parent["product_id"],
+            product_version=parent["product_version"],
+            surface=parent["surface"],
+            scope_type=profile_def.get("child_scope") or "page",
+            scope_ids=[scope_id],
+            authorities=authorities,
+            profile_id=child_profile,
+        )
+        child["parent_run_id"] = parent_run_id
+        child["shared_baseline"] = baseline
+        save_run(store, child)
+
+        child = resume_run(
+            store,
+            child["run_id"],
+            {
+                "stage": "baseline",
+                "status": "pass",
+                "producer": "design-harness",
+                "observed_result": f"inherited shared baseline {baseline} from parent {parent_run_id}",
+                "input_versions": {"baseline": baseline},
+                "limitations": [],
+            },
+        )
+
+        entry = {
+            "run_id": child["run_id"],
+            "scope_id": scope_id,
+            "scope_type": child["scope_type"],
+            "profile_id": child_profile,
+            "shared_baseline": baseline,
+            "created_at": utc_now(),
+        }
+        parent.setdefault("children", []).append(entry)
+        created.append(entry)
+
+    parent["shared_baseline"] = baseline
+    _append_history(
+        parent,
+        "children_spawned",
+        child_run_ids=[item["run_id"] for item in created],
+        scope_ids=child_scope_ids,
+        shared_baseline=baseline,
+    )
+    return save_run(store, parent)
+
+
+def batch_status(store: Path | str, parent_run_id: str) -> Dict[str, Any]:
+    parent = load_run(store, parent_run_id)
+    _require_batch_parent(parent)
+
+    children = []
+    counts: Dict[str, int] = {}
+    for entry in parent.get("children", []):
+        child = load_run(store, entry["run_id"])
+        counts[child["state"]] = counts.get(child["state"], 0) + 1
+        children.append(
+            {
+                **deepcopy(entry),
+                "state": child["state"],
+                "next_action": child.get("next_action"),
+                "profile_next": _profile_next_stage(child),
+            }
+        )
+
+    states = [item["state"] for item in children]
+    ready_states = {"AWAITING_USER_APPROVAL", "APPROVED"}
+    verified_states = {"DELIVERY_VERIFIED", "ARCHIVED"}
+    approved_or_beyond = {"APPROVED", "DELIVERY_VERIFIED", "ARCHIVED"}
+
+    ready_for_batch_approval = bool(states) and all(
+        state in ready_states for state in states
+    ) and any(state == "AWAITING_USER_APPROVAL" for state in states)
+    all_delivery_verified = bool(states) and all(
+        state in verified_states for state in states
+    )
+
+    if any(state == "BLOCKED" for state in states):
+        overall_state = "BLOCKED"
+    elif any(state == "RECONCILING" for state in states):
+        overall_state = "RECONCILING"
+    elif states and all(state == "ARCHIVED" for state in states):
+        overall_state = "ARCHIVED"
+    elif all_delivery_verified:
+        overall_state = "DELIVERY_VERIFIED"
+    elif states and all(state in approved_or_beyond for state in states):
+        overall_state = "APPROVED"
+    elif ready_for_batch_approval:
+        overall_state = "READY_FOR_APPROVAL"
+    elif not states:
+        overall_state = "EMPTY"
+    else:
+        overall_state = "RUNNING"
+
+    return {
+        "parent_run_id": parent_run_id,
+        "parent_state": parent["state"],
+        "shared_baseline": parent.get("shared_baseline")
+        or parent.get("authorities", {}).get("baseline"),
+        "children": children,
+        "counts": counts,
+        "overall_state": overall_state,
+        "ready_for_batch_approval": ready_for_batch_approval,
+        "all_delivery_verified": all_delivery_verified,
+        "total": len(children),
+    }
+
+
+def batch_approve(
+    store: Path | str,
+    parent_run_id: str,
+    *,
+    actor: str = "human",
+) -> Dict[str, Any]:
+    parent = load_run(store, parent_run_id)
+    _require_batch_parent(parent)
+    status = batch_status(store, parent_run_id)
+    if not status["ready_for_batch_approval"]:
+        raise TransitionError(
+            "batch approval requires every child to be awaiting approval or already approved"
+        )
+
+    approved_children = []
+    for entry in parent.get("children", []):
+        child = load_run(store, entry["run_id"])
+        if child["state"] == "AWAITING_USER_APPROVAL":
+            child = approve_run(
+                store,
+                child["run_id"],
+                scope=_canonical_scope(child),
+                actor=actor,
+            )
+        approved_children.append(child["run_id"])
+
+    parent = load_run(store, parent_run_id)
+    parent["state"] = "APPROVED"
+    parent.setdefault("decisions", []).append(
+        {
+            "decision_id": f"decision_{uuid.uuid4().hex[:12]}",
+            "kind": "batch-approval",
+            "scope": _canonical_scope(parent),
+            "actor": actor,
+            "child_run_ids": approved_children,
+            "at": utc_now(),
+        }
+    )
+    _append_history(
+        parent,
+        "batch_approved",
+        child_run_ids=approved_children,
+        actor=actor,
+    )
+    return save_run(store, parent)
+
+
 def approve_run(
     store: Path | str,
     run_id: str,
@@ -749,6 +961,21 @@ def build_parser() -> argparse.ArgumentParser:
     artifact.add_argument("--run-id", required=True)
     artifact.add_argument("--artifact-json", required=True)
 
+    spawn = sub.add_parser("spawn-children")
+    spawn.add_argument("--store", required=True)
+    spawn.add_argument("--run-id", required=True)
+    spawn.add_argument("--child-scope-id", action="append", required=True)
+    spawn.add_argument("--authority", action="append", default=[])
+
+    batch = sub.add_parser("batch-status")
+    batch.add_argument("--store", required=True)
+    batch.add_argument("--run-id", required=True)
+
+    batch_approval = sub.add_parser("batch-approve")
+    batch_approval.add_argument("--store", required=True)
+    batch_approval.add_argument("--run-id", required=True)
+    batch_approval.add_argument("--actor", default="human")
+
     return parser
 
 
@@ -816,6 +1043,21 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         elif args.command == "record-artifact":
             result = record_artifact(
                 args.store, args.run_id, _load_json_arg(args.artifact_json)
+            )
+        elif args.command == "spawn-children":
+            result = spawn_child_runs(
+                args.store,
+                args.run_id,
+                args.child_scope_id,
+                authority_overrides=_parse_authorities(args.authority),
+            )
+        elif args.command == "batch-status":
+            result = batch_status(args.store, args.run_id)
+        elif args.command == "batch-approve":
+            result = batch_approve(
+                args.store,
+                args.run_id,
+                actor=args.actor,
             )
         else:
             parser.error(f"unknown command: {args.command}")
