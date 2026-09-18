@@ -46,11 +46,12 @@ When the next action is a specialist skill/tool, do not invoke it directly from 
 
 1. Run `next-action` to inspect the computed transition.
 2. Run `dispatch` to issue an idempotent dispatch packet with exact scope, authority versions, valid upstream evidence/artifacts, handler, expected evidence stage, and stop conditions.
-3. Execute exactly the named handler against that packet.
-4. Return the result through `complete-dispatch --dispatch-id ... --evidence-json ...`.
-5. Only then inspect the next action.
+3. In multi-worker environments, claim the dispatch with `claim-dispatch --worker-id ...` before executing it. A second worker cannot claim the same active dispatch.
+4. Execute exactly the named handler against that packet.
+5. Return the result through `complete-dispatch --dispatch-id ... --worker-id ... --evidence-json ...` when claimed.
+6. Only then inspect the next action.
 
-A wrong/stale dispatch ID or wrong evidence stage is rejected. While an active dispatch exists, direct `resume` cannot bypass it.
+A wrong/stale dispatch ID or wrong evidence stage is rejected. While an active dispatch exists, direct `resume` cannot bypass it. Claimed work can only be completed by the owning worker; use `release-dispatch` with a reason before reassignment.
 
 See [references/dispatch-contract.md](references/dispatch-contract.md).
 
