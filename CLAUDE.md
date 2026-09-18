@@ -18,7 +18,7 @@
 | `ui-continuity` | `skills/ui-continuity/` | Continue approved UI families with explicit change budgets and scoped feedback |
 | `product-design` | `skills/product-design/` | Orchestrate staged product-design work through existing specialist skills |
 | `design-guard` | `skills/design-guard/` | Audit cross-artifact design consistency and promotion evidence |
-| `design-harness` | `skills/design-harness/` | Execute resumable design SOP runs with evidence, approvals, reconciliation, and correction gates |
+| `design-harness` | `skills/design-harness/` | Execute profile-driven, resumable design SOP runs with evidence, approvals, reconciliation, correction gates, and persistent run state |
 
 ## Directory Structure
 
