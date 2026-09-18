@@ -174,6 +174,15 @@ class DesignHarnessProfileTests(unittest.TestCase):
         self.assertEqual(profile["parallel_policy"], "shared-baseline")
         self.assertEqual(profile["child_scope"], "page")
 
+    def test_batch_profile_delegates_page_stages_to_children(self):
+        profile = design_harness.load_profile("page-family-batch")
+
+        self.assertEqual(profile["child_profile"], "existing-product-next-page")
+        self.assertEqual(
+            [stage["evidence_stage"] for stage in profile["stages"]],
+            ["baseline"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
