@@ -36,7 +36,7 @@ python skills/design-harness/scripts/design_harness.py start \
 |---|---|---|
 | `product-to-ui` | A product/feature must move from product intent to an approved UI candidate | Runs behavior → navigation → page task → continuity → render → guard → approval |
 | `existing-product-next-page` | IA/feature/navigation/shell are already locked and the next page must continue the family | Requires locked upstream authorities and skips reopening behavior/navigation stages |
-| `page-family-batch` | Several pages share the same approved shell/design language | Pins a shared baseline and declares `shared-baseline` parallel policy for page children |
+| `page-family-batch` | Several pages share the same approved shell/design language | Parent validates one shared baseline, then spawns `existing-product-next-page` child runs; page-level stages stay in the children |
 | `design-correction` | Existing run receives scoped feedback | Correction-only entry; use the runtime `correct` path rather than starting a new run |
 | `stitch-high-fidelity-delivery` | A contract-bound page is delivered through Stitch | Routes candidate production to `stitch-delivery-harness`, then guard + approval |
 | `design-to-implementation` | Approved design must become a guarded implementation handoff and then be runtime-verified | Requires approved design authority and keeps delivery verification as the final gate |
@@ -113,3 +113,12 @@ A project-specific profile may be added only when:
 4. tests cover the new stage plan.
 
 Product-specific menu names, routes, and design tokens belong in project contracts, not in the reusable profile.
+
+
+## Batch profile ownership
+
+For `page-family-batch`, the parent stage plan contains only `baseline`. After it reaches `BASELINE_BOUND`, the runtime creates child page runs using `existing-product-next-page`.
+
+This prevents the parent from duplicating Task, Continuity, Candidate, Guard, and Approval work already owned by children.
+
+See [batch-runs.md](batch-runs.md).
