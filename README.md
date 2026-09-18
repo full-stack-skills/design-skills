@@ -2,7 +2,7 @@
 
 # design-skills
 
-**Design tool skills — Figma, Sketch, Adobe XD, AI art tools**
+**Design and product experience skills — UI tools, feature design, navigation, continuity**
 
 [![GitHub](https://img.shields.io/badge/github-full--stack--skills%2Fdesign-skills-green.svg)](https://github.com/full-stack-skills/design-skills)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -24,7 +24,7 @@ English | [简体中文](./README.zh-CN.md)
 
 **Design Tools Skills** is a curated collection of Agent Skills for AI coding agents, part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem maintained by [PartMe.AI](https://github.com/partme-ai).
 
-This package includes **5 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
+This package currently registers **8 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
 
 ## 📦 Install
 
@@ -38,7 +38,7 @@ Or install specific skills:
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 Skills (5)
+## 🎯 Skills (8)
 
 | Skill | Description |
 |-------|-------------|
@@ -47,6 +47,9 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
 | `cross-platform-mvp-ui-alignment` | Align cross-platform MVP specifications, product states, design language, and matching Phone/Tablet UI asset sets. |
+| `feature-design` | Turn underspecified product features into observable behavior contracts covering actions, states, permissions, evidence, and acceptance. |
+| `navigation-design` | Define scoped navigation, routes, activation, context propagation, deep links, and return contracts without hierarchy drift. |
+| `ui-continuity` | Continue approved UI families with explicit immutable regions, change budgets, scoped feedback, and baseline-vs-candidate checks. |
 
 ## 🤖 Supported Agents
 
