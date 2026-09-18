@@ -51,7 +51,8 @@ jobs:
           python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id dispatch_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
           python skills/design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke
           DISPATCH_ID="$(python skills/design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id dispatch_smoke | python -c 'import json,sys; print(json.load(sys.stdin)["dispatch_id"])')"
-          python skills/design-harness/scripts/design_harness.py claim-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker
+          python skills/design-harness/scripts/design_harness.py claim-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --lease-seconds 60
+          python skills/design-harness/scripts/design_harness.py heartbeat-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --lease-seconds 120
           python skills/design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke
           python skills/design-harness/scripts/design_harness.py complete-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --evidence-json '{"stage":"baseline","status":"pass","producer":"product-design","observed_result":"baseline bound"}'
           python skills/design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke
