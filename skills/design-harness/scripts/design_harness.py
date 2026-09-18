@@ -430,6 +430,22 @@ def get_next_action(store: Path | str, run_id: str) -> Dict[str, Any]:
     run = load_run(store, run_id)
     state = run["state"]
 
+    active_dispatch_id = run.get("active_dispatch_id")
+    if active_dispatch_id:
+        active = _find_dispatch(run, active_dispatch_id)
+        if active.get("status") == "issued":
+            return {
+                "kind": "inflight",
+                "handler": active["handler"],
+                "operation": "complete-dispatch",
+                "dispatch_id": active["dispatch_id"],
+                "evidence_stage": active["evidence_stage"],
+                "target_state": active["target_state"],
+                "scope": active["scope"],
+                "expected_evidence": deepcopy(active["expected_evidence"]),
+                "issued_at": active["issued_at"],
+            }
+
     if state == "RECONCILING":
         reconciliation = run.get("reconciliation") or {}
         return {
