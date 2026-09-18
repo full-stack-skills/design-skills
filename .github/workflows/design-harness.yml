@@ -49,6 +49,18 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke test journal replay recovery
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id journal_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/design-harness/scripts/design_harness.py set-next-action --store "$STORE" --run-id journal_smoke --action-json '{"kind":"skill","target":"feature-design","expected_evidence":"behavior"}'
+          python skills/design-harness/scripts/design_harness.py verify-journal --store "$STORE" --run-id journal_smoke
+          python skills/design-harness/scripts/design_harness.py replay-run --store "$STORE" --run-id journal_smoke
+          rm "$STORE/runs/journal_smoke.json"
+          python skills/design-harness/scripts/design_harness.py recover-run --store "$STORE" --run-id journal_smoke
+          python skills/design-harness/scripts/design_harness.py status --store "$STORE" --run-id journal_smoke
+          python skills/design-harness/scripts/design_harness.py verify-journal --store "$STORE" --run-id journal_smoke
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
