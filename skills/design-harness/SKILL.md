@@ -63,7 +63,7 @@ Before a new run, search the target project's run ledger for the same bounded sc
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/profiles.md](references/profiles.md) for SOP selection, and [references/cli.md](references/cli.md) for executable commands.
+Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
@@ -74,6 +74,7 @@ Use [references/run-contract.md](references/run-contract.md) for persistent stat
 - Unknown write/tool outcome enters `RECONCILING`; do not blindly retry.
 - A change to an authoritative upstream contract invalidates all dependent downstream evidence.
 - Parallel page work must pin the same shared baseline version when continuity is required.
+- `page-family-batch` parents own only the shared baseline and aggregate decisions; page-level task/continuity/render/guard stages belong to child runs.
 
 ## Correction behavior
 
