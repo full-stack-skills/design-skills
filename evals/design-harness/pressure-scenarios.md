@@ -185,3 +185,18 @@ The runtime has only the latest snapshot file as durable state. Losing or corrup
 **Expected behavior with the skill**
 
 Every committed revision is appended to a hash-chained journal. The runtime verifies the chain, replays the latest committed snapshot, and restores the materialized JSON at the exact existing revision without generating a new workflow event. Tampered/invalid journals block replay. A journal/snapshot revision mismatch is reconciled explicitly rather than silently overwritten.
+
+
+## RED-13 — Audit question is answered from current state only
+
+**Prompt**
+
+> Tell me exactly when this design run became APPROVED, which revision changed the baseline, and what changed during the later correction.
+
+**Observed baseline failure**
+
+The agent inspects only the current materialized snapshot or summarizes conversation memory. It cannot prove which revision introduced the state, which fields changed, or whether an answer came from intact historical evidence.
+
+**Expected behavior with the skill**
+
+Historical inspection verifies the journal, reads exact revision snapshots, generates structured revision diffs, and traces JSON Pointer paths only when their values change. Audit commands are read-only and never restore an old revision over the current run. The answer cites revision numbers, causes, and event hashes from the verified journal history.
