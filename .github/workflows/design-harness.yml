@@ -37,6 +37,18 @@ jobs:
           STORE="$(mktemp -d)"
           python skills/design-harness/scripts/design_harness.py start --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
 
+      - name: Smoke test run discovery registry
+        run: |
+          STORE="$(mktemp -d)"
+          FIRST="$(python skills/design-harness/scripts/design_harness.py ensure-run --store "$STORE" --run-id ensure_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v1)"
+          SECOND="$(python skills/design-harness/scripts/design_harness.py ensure-run --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v1)"
+          FIRST="$FIRST" SECOND="$SECOND" python -c 'import json,os; a=json.loads(os.environ["FIRST"]); b=json.loads(os.environ["SECOND"]); assert a["created"] is True; assert b["created"] is False; assert a["run"]["run_id"] == b["run"]["run_id"] == "ensure_smoke"'
+          python skills/design-harness/scripts/design_harness.py runs --store "$STORE"
+          if python skills/design-harness/scripts/design_harness.py ensure-run --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v2; then
+            echo "authority drift should have failed"
+            exit 1
+          fi
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
