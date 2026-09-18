@@ -82,6 +82,93 @@ VALID_MATURITY = {
     "archived",
 }
 
+PROFILE_DIR = Path(__file__).resolve().parents[1] / "profiles"
+
+
+def _read_json(path: Path) -> Dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValidationError(f"profile file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValidationError(f"invalid JSON in profile file {path}: {exc}") from exc
+
+
+def load_profile(profile_id: str) -> Dict[str, Any]:
+    catalog = _read_json(PROFILE_DIR / "catalog.json")
+    entries = catalog.get("profiles")
+    if not isinstance(entries, list):
+        raise ValidationError("profile catalog must contain a profiles list")
+
+    entry = next((item for item in entries if item.get("id") == profile_id), None)
+    if entry is None:
+        raise ValidationError(f"unknown design harness profile: {profile_id}")
+
+    file_name = entry.get("file")
+    if not file_name:
+        raise ValidationError(f"profile catalog entry has no file: {profile_id}")
+
+    profile = _read_json(PROFILE_DIR / file_name)
+    if profile.get("id") != profile_id:
+        raise ValidationError(
+            f"profile id mismatch: catalog={profile_id}, file={profile.get('id')}"
+        )
+    if not isinstance(profile.get("version"), int):
+        raise ValidationError(f"profile version must be an integer: {profile_id}")
+    if profile.get("entry_mode") not in {"start", "correction"}:
+        raise ValidationError(f"invalid profile entry_mode: {profile_id}")
+
+    stages = profile.get("stages")
+    if not isinstance(stages, list) or not stages:
+        raise ValidationError(f"profile must define a non-empty stages list: {profile_id}")
+    for index, stage in enumerate(stages):
+        for field in ("evidence_stage", "target_state", "handler"):
+            if not stage.get(field):
+                raise ValidationError(
+                    f"profile {profile_id} stage {index} missing {field}"
+                )
+        _validate_state(stage["target_state"])
+
+    return profile
+
+
+def list_profiles() -> list[Dict[str, Any]]:
+    catalog = _read_json(PROFILE_DIR / "catalog.json")
+    result = []
+    for entry in catalog.get("profiles", []):
+        profile = load_profile(entry["id"])
+        result.append(
+            {
+                "id": profile["id"],
+                "version": profile["version"],
+                "title": profile.get("title"),
+                "description": profile.get("description"),
+                "entry_mode": profile.get("entry_mode"),
+                "parallel_policy": profile.get("parallel_policy"),
+                "child_scope": profile.get("child_scope"),
+                "final_gate": profile.get("final_gate"),
+            }
+        )
+    return result
+
+
+def _profile_next_stage(run: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    plan = run.get("stage_plan") or []
+    cursor = int(run.get("stage_cursor", 0))
+    if 0 <= cursor < len(plan):
+        return deepcopy(plan[cursor])
+    return None
+
+
+def _profile_cursor_for_state(run: Dict[str, Any], affected_state: str) -> int:
+    plan = run.get("stage_plan") or []
+    affected_index = _state_index(affected_state)
+    for index, stage in enumerate(plan):
+        target = stage["target_state"]
+        if target in PRIMARY_STATES and _state_index(target) >= affected_index:
+            return index
+    return len(plan)
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -187,6 +274,7 @@ def start_run(
     scope_ids: Iterable[str],
     authorities: Optional[Dict[str, str]] = None,
     run_id: Optional[str] = None,
+    profile_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     scope_ids = [str(item) for item in scope_ids if str(item).strip()]
     if not scope_ids:
@@ -200,6 +288,35 @@ def start_run(
     if _run_path(store, run_id).exists():
         raise ValidationError(f"run already exists: {run_id}")
 
+    profile = None
+    stage_plan = []
+    stage_cursor = 0
+    if profile_id:
+        profile_def = load_profile(profile_id)
+        if profile_def["entry_mode"] != "start":
+            raise ValidationError(
+                f"profile {profile_id} cannot start a new run; use its {profile_def['entry_mode']} entry mode"
+            )
+        authorities = deepcopy(authorities or {})
+        missing_authorities = [
+            key
+            for key in profile_def.get("required_authorities", [])
+            if not authorities.get(key)
+        ]
+        if missing_authorities:
+            raise ValidationError(
+                f"profile {profile_id} missing required authorities: {', '.join(missing_authorities)}"
+            )
+        profile = {
+            "id": profile_def["id"],
+            "version": profile_def["version"],
+            "title": profile_def.get("title"),
+            "final_gate": profile_def.get("final_gate"),
+            "parallel_policy": profile_def.get("parallel_policy"),
+            "child_scope": profile_def.get("child_scope"),
+        }
+        stage_plan = deepcopy(profile_def["stages"])
+
     now = utc_now()
     run = {
         "schema_version": 1,
@@ -210,6 +327,9 @@ def start_run(
         "scope_type": scope_type,
         "scope_ids": scope_ids,
         "state": "INIT",
+        "profile": profile,
+        "stage_plan": stage_plan,
+        "stage_cursor": stage_cursor,
         "authorities": deepcopy(authorities or {}),
         "artifacts": [],
         "evidence": [],
@@ -228,7 +348,11 @@ def start_run(
 
 
 def status_run(store: Path | str, run_id: str) -> Dict[str, Any]:
-    return load_run(store, run_id)
+    run = load_run(store, run_id)
+    result = deepcopy(run)
+    result["profile_next"] = _profile_next_stage(run)
+    result["profile_complete"] = bool(run.get("profile")) and result["profile_next"] is None
+    return result
 
 
 def set_next_action(
@@ -296,7 +420,16 @@ def resume_run(
         _append_evidence(run, item)
         if item["status"] == "pass":
             resume_from = run["correction"]["resume_from"]
-            run["state"] = _predecessor(resume_from)
+            if run.get("profile"):
+                cursor = _profile_cursor_for_state(run, resume_from)
+                run["stage_cursor"] = cursor
+                run["state"] = (
+                    "INIT"
+                    if cursor == 0
+                    else run["stage_plan"][cursor - 1]["target_state"]
+                )
+            else:
+                run["state"] = _predecessor(resume_from)
             run["correction"]["completed_at"] = utc_now()
             _append_history(run, "correction_completed", resume_from=resume_from)
         elif item["status"] == "unknown":
@@ -313,10 +446,21 @@ def resume_run(
             _append_history(run, "correction_blocked", status=item["status"])
         return save_run(store, run)
 
-    if state not in EXPECTED_TRANSITIONS:
-        raise TransitionError(f"state {state} does not accept generic resume evidence")
+    profile_stage = _profile_next_stage(run) if run.get("profile") else None
+    if profile_stage is not None:
+        expected_stage = profile_stage["evidence_stage"]
+        target_state = profile_stage["target_state"]
+        target_cursor = int(run.get("stage_cursor", 0)) + 1
+    else:
+        if run.get("profile"):
+            raise TransitionError(
+                f"profile {run['profile']['id']} has no remaining resumable stages"
+            )
+        if state not in EXPECTED_TRANSITIONS:
+            raise TransitionError(f"state {state} does not accept generic resume evidence")
+        expected_stage, target_state = EXPECTED_TRANSITIONS[state]
+        target_cursor = None
 
-    expected_stage, target_state = EXPECTED_TRANSITIONS[state]
     if item["stage"] != expected_stage:
         raise TransitionError(
             f"state {state} expects stage {expected_stage}, got {item['stage']}"
@@ -325,6 +469,8 @@ def resume_run(
     _append_evidence(run, item)
     if item["status"] == "pass":
         run["state"] = target_state
+        if target_cursor is not None:
+            run["stage_cursor"] = target_cursor
         run["reconciliation"] = None
         _append_history(
             run,
@@ -332,11 +478,13 @@ def resume_run(
             from_state=state,
             to_state=target_state,
             evidence_id=item["evidence_id"],
+            profile_id=(run.get("profile") or {}).get("id"),
         )
     elif item["status"] == "unknown":
         run["reconciliation"] = {
             "return_state": state,
             "target_state": target_state,
+            "target_stage_cursor": target_cursor,
             "stage": expected_stage,
             "attempts": 0,
             "started_at": utc_now(),
@@ -371,6 +519,8 @@ def reconcile_run(
     if resolved:
         if outcome == "pass":
             run["state"] = reconciliation["target_state"]
+            if reconciliation.get("target_stage_cursor") is not None:
+                run["stage_cursor"] = reconciliation["target_stage_cursor"]
             _append_history(
                 run,
                 "reconciliation_resolved",
@@ -545,6 +695,11 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--scope-id", action="append", required=True)
     start.add_argument("--authority", action="append", default=[])
     start.add_argument("--run-id")
+    start.add_argument("--profile")
+
+    profiles = sub.add_parser("profiles")
+    profile = sub.add_parser("profile")
+    profile.add_argument("--name", required=True)
 
     for name in ["status", "archive"]:
         cmd = sub.add_parser(name)
@@ -612,7 +767,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 scope_ids=args.scope_id,
                 authorities=_parse_authorities(args.authority),
                 run_id=args.run_id,
+                profile_id=args.profile,
             )
+        elif args.command == "profiles":
+            result = {"profiles": list_profiles()}
+        elif args.command == "profile":
+            result = load_profile(args.name)
         elif args.command == "status":
             result = status_run(args.store, args.run_id)
         elif args.command == "resume":
