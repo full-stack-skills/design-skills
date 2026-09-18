@@ -112,3 +112,17 @@ For concurrent workers, each dispatch also records:
 - `releases[]` with prior worker, reason, and release time.
 
 A dispatch may be `issued` or `claimed` while active. Completion from a claimed dispatch requires the same worker ID. Release returns it to `issued` without changing the dispatch identity.
+
+
+### Worker lease fields
+
+A claimed dispatch may include:
+- `lease_seconds`;
+- `lease_expires_at`;
+- `heartbeats[]`.
+
+The claim is valid only before `lease_expires_at`. A heartbeat extends that timestamp and is recorded in the dispatch ledger.
+
+If the lease expires, a subsequent claim may transfer the same dispatch to another worker. The prior claim is preserved as a `lease-expired-reclaim` release receipt rather than deleting or replacing the original dispatch.
+
+Expired workers cannot complete the dispatch.
