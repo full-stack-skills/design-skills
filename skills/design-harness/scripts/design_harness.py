@@ -1361,6 +1361,250 @@ def entity_provenance_graph(
     }
 
 
+AUTHORITY_REVALIDATION_STATES = {
+    "feature_contract": "BEHAVIOR_READY",
+    "navigation_contract": "NAVIGATION_READY",
+    "design_task": "TASK_READY",
+    "baseline": "CONTINUITY_READY",
+    "approved_design": "GUARD_REVIEWED",
+}
+
+
+def _authority_binding_paths(
+    snapshot: Dict[str, Any],
+    authority_key: str,
+    authority_value: str,
+) -> list[str]:
+    paths = []
+    authorities = snapshot.get("authorities") or {}
+    if authorities.get(authority_key) == authority_value:
+        paths.append(
+            f"/authorities/{_json_pointer_escape(authority_key)}"
+        )
+    if (
+        authority_key == "baseline"
+        and snapshot.get("shared_baseline") == authority_value
+    ):
+        paths.append("/shared_baseline")
+    return sorted(set(paths))
+
+
+def _authority_entity_dependencies(
+    snapshot: Dict[str, Any],
+    authority_key: str,
+    authority_value: str,
+) -> Dict[str, list[str]]:
+    affected = {
+        "evidence": [],
+        "artifact": [],
+        "dispatch": [],
+    }
+
+    for evidence in snapshot.get("evidence") or []:
+        if (
+            (evidence.get("input_versions") or {}).get(authority_key)
+            == authority_value
+        ):
+            evidence_id = evidence.get("evidence_id")
+            if evidence_id:
+                affected["evidence"].append(evidence_id)
+
+    for artifact in snapshot.get("artifacts") or []:
+        if (
+            (artifact.get("input_versions") or {}).get(authority_key)
+            == authority_value
+        ):
+            artifact_id = artifact.get("artifact_id")
+            if artifact_id:
+                affected["artifact"].append(artifact_id)
+
+    for dispatch in snapshot.get("dispatches") or []:
+        inputs = dispatch.get("inputs") or {}
+        authority_versions = inputs.get("authority_versions") or {}
+        if authority_versions.get(authority_key) == authority_value:
+            dispatch_id = dispatch.get("dispatch_id")
+            if dispatch_id:
+                affected["dispatch"].append(dispatch_id)
+
+    for key in affected:
+        affected[key] = sorted(set(affected[key]))
+    return affected
+
+
+def authority_impact_analysis(
+    store: Path | str,
+    *,
+    authority_key: str,
+    authority_value: str,
+    include_terminal: bool = False,
+) -> Dict[str, Any]:
+    if not authority_key:
+        raise ValidationError("authority_key is required")
+    if authority_value is None or authority_value == "":
+        raise ValidationError("authority_value is required")
+
+    scan = scan_runs(store)
+    diagnostics = list(scan.get("diagnostics") or [])
+    affected_runs = []
+
+    for materialized in scan.get("runs") or []:
+        run_id = materialized["run_id"]
+        journal = verify_run_journal(store, run_id)
+        if not journal["valid"]:
+            diagnostics.append(
+                {
+                    "run_id": run_id,
+                    "error": "JournalIntegrityError",
+                    "message": "; ".join(journal["errors"]),
+                }
+            )
+            continue
+
+        snapshot = replay_run_from_journal(store, run_id)
+        if (
+            not include_terminal
+            and snapshot.get("state") in TERMINAL_STATES
+        ):
+            continue
+
+        binding_paths = _authority_binding_paths(
+            snapshot,
+            authority_key,
+            authority_value,
+        )
+        affected_entities = _authority_entity_dependencies(
+            snapshot,
+            authority_key,
+            authority_value,
+        )
+        if not binding_paths and not any(affected_entities.values()):
+            continue
+
+        profile = snapshot.get("profile") or {}
+        affected_runs.append(
+            {
+                "run_id": run_id,
+                "revision": snapshot.get("revision"),
+                "state": snapshot.get("state"),
+                "scope": _canonical_scope(snapshot),
+                "scope_type": snapshot.get("scope_type"),
+                "scope_ids": deepcopy(snapshot.get("scope_ids") or []),
+                "profile_id": profile.get("id"),
+                "profile_version": profile.get("version"),
+                "parent_run_id": snapshot.get("parent_run_id"),
+                "shared_baseline": snapshot.get("shared_baseline"),
+                "binding_paths": binding_paths,
+                "affected_entities": affected_entities,
+            }
+        )
+
+    affected_runs.sort(key=lambda item: item["run_id"])
+    diagnostics.sort(
+        key=lambda item: (
+            item.get("run_id") or "",
+            item.get("file") or "",
+            item.get("error") or "",
+        )
+    )
+
+    return {
+        "authority_key": authority_key,
+        "authority_value": authority_value,
+        "include_terminal": include_terminal,
+        "complete": not diagnostics,
+        "affected_run_count": len(affected_runs),
+        "affected_runs": affected_runs,
+        "diagnostics": diagnostics,
+    }
+
+
+def _recommended_authority_affected_state(
+    run_impact: Dict[str, Any],
+    authority_key: str,
+) -> str:
+    if (
+        authority_key == "baseline"
+        and run_impact.get("profile_id") == "page-family-batch"
+    ):
+        return "BASELINE_BOUND"
+    return AUTHORITY_REVALIDATION_STATES.get(
+        authority_key,
+        "TASK_READY",
+    )
+
+
+def plan_authority_change(
+    store: Path | str,
+    *,
+    authority_key: str,
+    from_value: str,
+    to_value: str,
+    include_terminal: bool = False,
+) -> Dict[str, Any]:
+    if from_value == to_value:
+        raise ValidationError(
+            "from_value and to_value must be different"
+        )
+
+    impact = authority_impact_analysis(
+        store,
+        authority_key=authority_key,
+        authority_value=from_value,
+        include_terminal=include_terminal,
+    )
+
+    run_impacts = []
+    for item in impact["affected_runs"]:
+        planned = deepcopy(item)
+        planned["recommended_affected_state"] = (
+            _recommended_authority_affected_state(
+                item,
+                authority_key,
+            )
+        )
+        planned["required_action"] = "explicit-correction-or-migration"
+        run_impacts.append(planned)
+
+    plan_basis = {
+        "authority_key": authority_key,
+        "from_value": from_value,
+        "to_value": to_value,
+        "include_terminal": include_terminal,
+        "complete": impact["complete"],
+        "run_impacts": [
+            {
+                "run_id": item["run_id"],
+                "revision": item["revision"],
+                "recommended_affected_state": item[
+                    "recommended_affected_state"
+                ],
+                "binding_paths": item["binding_paths"],
+                "affected_entities": item["affected_entities"],
+            }
+            for item in run_impacts
+        ],
+        "diagnostics": impact["diagnostics"],
+    }
+    plan_hash = hashlib.sha256(
+        _canonical_json_bytes(plan_basis)
+    ).hexdigest()[:16]
+
+    return {
+        "plan_id": f"impact_{plan_hash}",
+        "generated_at": utc_now(),
+        "authority_key": authority_key,
+        "from_value": from_value,
+        "to_value": to_value,
+        "include_terminal": include_terminal,
+        "complete": impact["complete"],
+        "applied": False,
+        "requires_explicit_decision": bool(run_impacts),
+        "affected_run_count": len(run_impacts),
+        "run_impacts": run_impacts,
+        "diagnostics": deepcopy(impact["diagnostics"]),
+    }
+
+
 def _write_materialized_snapshot(
     path: Path,
     run: Dict[str, Any],
@@ -3131,6 +3375,19 @@ def build_parser() -> argparse.ArgumentParser:
     provenance.add_argument("--id", required=True, dest="entity_id")
     provenance.add_argument("--max-depth", type=int, default=2)
 
+    authority_impact = sub.add_parser("authority-impact")
+    authority_impact.add_argument("--store", required=True)
+    authority_impact.add_argument("--key", required=True, dest="authority_key")
+    authority_impact.add_argument("--value", required=True, dest="authority_value")
+    authority_impact.add_argument("--include-terminal", action="store_true")
+
+    authority_plan = sub.add_parser("plan-authority-change")
+    authority_plan.add_argument("--store", required=True)
+    authority_plan.add_argument("--key", required=True, dest="authority_key")
+    authority_plan.add_argument("--from", required=True, dest="from_value")
+    authority_plan.add_argument("--to", required=True, dest="to_value")
+    authority_plan.add_argument("--include-terminal", action="store_true")
+
     return parser
 
 
@@ -3334,6 +3591,21 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.entity_type,
                 args.entity_id,
                 max_depth=args.max_depth,
+            )
+        elif args.command == "authority-impact":
+            result = authority_impact_analysis(
+                args.store,
+                authority_key=args.authority_key,
+                authority_value=args.authority_value,
+                include_terminal=args.include_terminal,
+            )
+        elif args.command == "plan-authority-change":
+            result = plan_authority_change(
+                args.store,
+                authority_key=args.authority_key,
+                from_value=args.from_value,
+                to_value=args.to_value,
+                include_terminal=args.include_terminal,
             )
         else:
             parser.error(f"unknown command: {args.command}")
