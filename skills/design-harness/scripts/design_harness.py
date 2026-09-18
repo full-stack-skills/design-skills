@@ -64,6 +64,10 @@ class JournalRevisionNotFoundError(DesignHarnessError):
     pass
 
 
+class EntityNotFoundError(DesignHarnessError):
+    pass
+
+
 PRIMARY_STATES = [
     "INIT",
     "BASELINE_BOUND",
@@ -126,6 +130,14 @@ VALID_MATURITY = {
     "approved-master",
     "verified-delivery",
     "archived",
+}
+
+ENTITY_COLLECTIONS = {
+    "evidence": ("evidence", "evidence_id"),
+    "artifact": ("artifacts", "artifact_id"),
+    "dispatch": ("dispatches", "dispatch_id"),
+    "decision": ("decisions", "decision_id"),
+    "invalidation": ("invalidations", "invalidation_id"),
 }
 
 PROFILE_DIR = Path(__file__).resolve().parents[1] / "profiles"
@@ -944,6 +956,408 @@ def trace_run_path(
         "path": path,
         "change_count": len(changes),
         "changes": changes,
+    }
+
+
+def _entity_spec(entity_type: str) -> tuple[str, str]:
+    spec = ENTITY_COLLECTIONS.get(entity_type)
+    if spec is None:
+        raise ValidationError(
+            "unknown entity type "
+            f"{entity_type}; expected one of {', '.join(sorted(ENTITY_COLLECTIONS))}"
+        )
+    return spec
+
+
+def _find_entity_in_snapshot(
+    snapshot: Dict[str, Any],
+    entity_type: str,
+    entity_id: str,
+) -> Optional[Dict[str, Any]]:
+    collection_name, id_field = _entity_spec(entity_type)
+    for item in snapshot.get(collection_name) or []:
+        if isinstance(item, dict) and item.get(id_field) == entity_id:
+            return deepcopy(item)
+    return None
+
+
+def _snapshot_entity_map(
+    snapshot: Dict[str, Any],
+    entity_type: str,
+) -> Dict[str, Dict[str, Any]]:
+    collection_name, id_field = _entity_spec(entity_type)
+    result: Dict[str, Dict[str, Any]] = {}
+    for item in snapshot.get(collection_name) or []:
+        if not isinstance(item, dict):
+            continue
+        entity_id = item.get(id_field)
+        if entity_id:
+            result[str(entity_id)] = deepcopy(item)
+    return result
+
+
+def _related_invalidation_ids(
+    snapshot: Dict[str, Any],
+    entity_type: str,
+    entity_id: str,
+) -> list[str]:
+    if entity_type not in {"evidence", "artifact"}:
+        return []
+    key = "evidence_ids" if entity_type == "evidence" else "artifact_ids"
+    ids = []
+    for invalidation in snapshot.get("invalidations") or []:
+        if entity_id in (invalidation.get(key) or []):
+            invalidation_id = invalidation.get("invalidation_id")
+            if invalidation_id:
+                ids.append(invalidation_id)
+    return sorted(set(ids))
+
+
+def entity_history(
+    store: Path | str,
+    run_id: str,
+    entity_type: str,
+    entity_id: str,
+) -> Dict[str, Any]:
+    _entity_spec(entity_type)
+    events = _verified_journal_events(store, run_id)
+
+    changes = []
+    previous_exists = False
+    previous_entity = None
+    seen = False
+
+    for event in events:
+        snapshot = event["snapshot"]
+        entity = _find_entity_in_snapshot(snapshot, entity_type, entity_id)
+        exists = entity is not None
+
+        if not seen and not exists:
+            continue
+
+        changed = False
+        kind = None
+        if exists and not previous_exists:
+            changed = True
+            kind = "created"
+        elif exists and previous_exists and entity != previous_entity:
+            changed = True
+            kind = "changed"
+        elif not exists and previous_exists:
+            changed = True
+            kind = "removed"
+
+        if changed:
+            changes.append(
+                {
+                    "revision": event["revision"],
+                    "kind": kind,
+                    "entity": deepcopy(entity) if exists else None,
+                    "state": snapshot.get("state"),
+                    "cause": event.get("cause"),
+                    "recorded_at": event.get("recorded_at"),
+                    "event_hash": event.get("event_hash"),
+                    "related_invalidation_ids": _related_invalidation_ids(
+                        snapshot,
+                        entity_type,
+                        entity_id,
+                    ),
+                }
+            )
+
+        if exists:
+            seen = True
+        previous_exists = exists
+        previous_entity = deepcopy(entity) if exists else None
+
+    if not seen:
+        raise EntityNotFoundError(
+            f"{entity_type} entity not found in run {run_id}: {entity_id}"
+        )
+
+    latest = None
+    latest_revision = None
+    for event in reversed(events):
+        entity = _find_entity_in_snapshot(
+            event["snapshot"], entity_type, entity_id
+        )
+        if entity is not None:
+            latest = entity
+            latest_revision = event["revision"]
+            break
+
+    return {
+        "run_id": run_id,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "first_revision": changes[0]["revision"] if changes else None,
+        "last_changed_revision": (
+            changes[-1]["revision"] if changes else None
+        ),
+        "latest_revision": latest_revision,
+        "latest": latest,
+        "change_count": len(changes),
+        "changes": changes,
+    }
+
+
+def entity_audit_index(
+    store: Path | str,
+    run_id: str,
+) -> Dict[str, Any]:
+    events = _verified_journal_events(store, run_id)
+    index: Dict[str, list[Dict[str, Any]]] = {
+        entity_type: [] for entity_type in ENTITY_COLLECTIONS
+    }
+
+    for entity_type in ENTITY_COLLECTIONS:
+        records: Dict[str, Dict[str, Any]] = {}
+        previous: Dict[str, Dict[str, Any]] = {}
+
+        for event in events:
+            revision = event["revision"]
+            snapshot = event["snapshot"]
+            current = _snapshot_entity_map(snapshot, entity_type)
+
+            for entity_id, entity in current.items():
+                record = records.get(entity_id)
+                if record is None:
+                    record = {
+                        "entity_id": entity_id,
+                        "first_revision": revision,
+                        "last_revision": revision,
+                        "last_changed_revision": revision,
+                        "change_count": 1,
+                        "latest": deepcopy(entity),
+                    }
+                    records[entity_id] = record
+                else:
+                    record["last_revision"] = revision
+                    record["latest"] = deepcopy(entity)
+                    if previous.get(entity_id) != entity:
+                        record["last_changed_revision"] = revision
+                        record["change_count"] += 1
+
+            previous = current
+
+        index[entity_type] = sorted(
+            records.values(),
+            key=lambda item: (
+                item["first_revision"],
+                item["entity_id"],
+            ),
+        )
+
+    return {
+        "run_id": run_id,
+        "latest_revision": events[-1]["revision"],
+        **index,
+    }
+
+
+def _provenance_edges(
+    snapshot: Dict[str, Any],
+) -> list[Dict[str, str]]:
+    edges: list[Dict[str, str]] = []
+    known = {
+        entity_type: set(_snapshot_entity_map(snapshot, entity_type))
+        for entity_type in ENTITY_COLLECTIONS
+    }
+
+    def add_edge(
+        source_type: str,
+        source_id: Optional[str],
+        relation: str,
+        target_type: str,
+        target_id: Optional[str],
+    ) -> None:
+        if not source_id or not target_id:
+            return
+        if source_id not in known.get(source_type, set()):
+            return
+        if target_id not in known.get(target_type, set()):
+            return
+        edge = {
+            "source_type": source_type,
+            "source_id": source_id,
+            "relation": relation,
+            "target_type": target_type,
+            "target_id": target_id,
+        }
+        if edge not in edges:
+            edges.append(edge)
+
+    for dispatch in snapshot.get("dispatches") or []:
+        add_edge(
+            "dispatch",
+            dispatch.get("dispatch_id"),
+            "produced-evidence",
+            "evidence",
+            dispatch.get("evidence_id"),
+        )
+
+    for evidence in snapshot.get("evidence") or []:
+        evidence_id = evidence.get("evidence_id")
+        dispatch_id = evidence.get("dispatch_id")
+        if dispatch_id:
+            add_edge(
+                "dispatch",
+                dispatch_id,
+                "produced-evidence",
+                "evidence",
+                evidence_id,
+            )
+        for artifact_id in evidence.get("artifact_ids") or []:
+            add_edge(
+                "evidence",
+                evidence_id,
+                "mentions-artifact",
+                "artifact",
+                artifact_id,
+            )
+
+    for artifact in snapshot.get("artifacts") or []:
+        artifact_id = artifact.get("artifact_id")
+        for evidence_id in artifact.get("evidence_ids") or []:
+            add_edge(
+                "artifact",
+                artifact_id,
+                "supported-by",
+                "evidence",
+                evidence_id,
+            )
+
+    for invalidation in snapshot.get("invalidations") or []:
+        invalidation_id = invalidation.get("invalidation_id")
+        for evidence_id in invalidation.get("evidence_ids") or []:
+            add_edge(
+                "invalidation",
+                invalidation_id,
+                "invalidated-evidence",
+                "evidence",
+                evidence_id,
+            )
+        for artifact_id in invalidation.get("artifact_ids") or []:
+            add_edge(
+                "invalidation",
+                invalidation_id,
+                "invalidated-artifact",
+                "artifact",
+                artifact_id,
+            )
+
+    return sorted(
+        edges,
+        key=lambda item: (
+            item["source_type"],
+            item["source_id"],
+            item["relation"],
+            item["target_type"],
+            item["target_id"],
+        ),
+    )
+
+
+def entity_provenance_graph(
+    store: Path | str,
+    run_id: str,
+    entity_type: str,
+    entity_id: str,
+    *,
+    max_depth: int = 2,
+) -> Dict[str, Any]:
+    _entity_spec(entity_type)
+    if not isinstance(max_depth, int) or max_depth < 0:
+        raise ValidationError("max_depth must be a non-negative integer")
+
+    events = _verified_journal_events(store, run_id)
+    snapshot = events[-1]["snapshot"]
+    root = _find_entity_in_snapshot(
+        snapshot, entity_type, entity_id
+    )
+    if root is None:
+        raise EntityNotFoundError(
+            f"{entity_type} entity not found in latest run snapshot "
+            f"{run_id}: {entity_id}"
+        )
+
+    all_nodes: Dict[tuple[str, str], Dict[str, Any]] = {}
+    for item_type in ENTITY_COLLECTIONS:
+        for item_id, entity in _snapshot_entity_map(
+            snapshot, item_type
+        ).items():
+            all_nodes[(item_type, item_id)] = {
+                "entity_type": item_type,
+                "entity_id": item_id,
+                "entity": entity,
+            }
+
+    edges = _provenance_edges(snapshot)
+    adjacency: Dict[tuple[str, str], set[tuple[str, str]]] = {
+        key: set() for key in all_nodes
+    }
+    for edge in edges:
+        source = (edge["source_type"], edge["source_id"])
+        target = (edge["target_type"], edge["target_id"])
+        adjacency.setdefault(source, set()).add(target)
+        adjacency.setdefault(target, set()).add(source)
+
+    root_key = (entity_type, entity_id)
+    distances = {root_key: 0}
+    queue = [root_key]
+    while queue:
+        current = queue.pop(0)
+        depth = distances[current]
+        if depth >= max_depth:
+            continue
+        for neighbor in sorted(adjacency.get(current, set())):
+            if neighbor not in distances:
+                distances[neighbor] = depth + 1
+                queue.append(neighbor)
+
+    included = set(distances)
+    graph_edges = [
+        edge
+        for edge in edges
+        if (edge["source_type"], edge["source_id"]) in included
+        and (edge["target_type"], edge["target_id"]) in included
+    ]
+    nodes = []
+    for key in sorted(
+        included,
+        key=lambda item: (
+            distances[item],
+            item[0],
+            item[1],
+        ),
+    ):
+        node = deepcopy(all_nodes[key])
+        node["depth"] = distances[key]
+        try:
+            history = entity_history(
+                store, run_id, key[0], key[1]
+            )
+            node["first_revision"] = history["first_revision"]
+            node["last_changed_revision"] = history[
+                "last_changed_revision"
+            ]
+        except EntityNotFoundError:
+            node["first_revision"] = None
+            node["last_changed_revision"] = None
+        nodes.append(node)
+
+    return {
+        "run_id": run_id,
+        "revision": events[-1]["revision"],
+        "root": {
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+        },
+        "max_depth": max_depth,
+        "node_count": len(nodes),
+        "edge_count": len(graph_edges),
+        "nodes": nodes,
+        "edges": graph_edges,
     }
 
 
@@ -2700,6 +3114,23 @@ def build_parser() -> argparse.ArgumentParser:
     trace.add_argument("--run-id", required=True)
     trace.add_argument("--path", required=True)
 
+    entity_index = sub.add_parser("entity-index")
+    entity_index.add_argument("--store", required=True)
+    entity_index.add_argument("--run-id", required=True)
+
+    entity_history_cmd = sub.add_parser("entity-history")
+    entity_history_cmd.add_argument("--store", required=True)
+    entity_history_cmd.add_argument("--run-id", required=True)
+    entity_history_cmd.add_argument("--type", required=True, dest="entity_type")
+    entity_history_cmd.add_argument("--id", required=True, dest="entity_id")
+
+    provenance = sub.add_parser("provenance")
+    provenance.add_argument("--store", required=True)
+    provenance.add_argument("--run-id", required=True)
+    provenance.add_argument("--type", required=True, dest="entity_type")
+    provenance.add_argument("--id", required=True, dest="entity_id")
+    provenance.add_argument("--max-depth", type=int, default=2)
+
     return parser
 
 
@@ -2883,6 +3314,26 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 args.store,
                 args.run_id,
                 args.path,
+            )
+        elif args.command == "entity-index":
+            result = entity_audit_index(
+                args.store,
+                args.run_id,
+            )
+        elif args.command == "entity-history":
+            result = entity_history(
+                args.store,
+                args.run_id,
+                args.entity_type,
+                args.entity_id,
+            )
+        elif args.command == "provenance":
+            result = entity_provenance_graph(
+                args.store,
+                args.run_id,
+                args.entity_type,
+                args.entity_id,
+                max_depth=args.max_depth,
             )
         else:
             parser.error(f"unknown command: {args.command}")
