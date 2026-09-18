@@ -2,6 +2,21 @@
 
 For multi-stage or resumable execution, `design-harness` owns persistent run state, evidence, approval gates, reconciliation, and correction invalidation. This document defines design routing and stage responsibilities; it is not a second run engine.
 
+## Harness profile routing
+
+Choose the narrowest built-in profile before starting a new multi-stage run:
+
+| Task | Profile |
+|---|---|
+| New product/feature to UI | `product-to-ui` |
+| Continue one approved page family | `existing-product-next-page` |
+| Batch sibling pages with one shell | `page-family-batch` |
+| Scoped correction | `design-correction` |
+| Stitch-centric high-fidelity delivery | `stitch-high-fidelity-delivery` |
+| Approved design to implementation handoff | `design-to-implementation` |
+
+Profile stage plans belong to `design-harness`; this router only selects the task class.
+
 ## Stage 0 — Recover state
 
 Collect:
