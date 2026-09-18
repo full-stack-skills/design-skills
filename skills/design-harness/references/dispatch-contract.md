@@ -87,7 +87,10 @@ A dispatch packet contains:
     "unknown-provider-outcome",
     "human-approval-required"
   ],
-  "status": "issued"
+  "status": "issued",
+  "worker_id": null,
+  "claimed_at": null,
+  "releases": []
 }
 ```
 
@@ -199,3 +202,67 @@ This trace is the minimum provenance needed to resume a design SOP without relyi
 - Stable repository/provider references are preferred over copied large payloads.
 - A dispatch never grants a specialist authority to rewrite upstream contracts.
 - A changed authority invalidates dependent downstream evidence according to the run invalidation rules.
+
+
+## Worker claim protocol
+
+For a single in-process Agent, a dispatch may be completed while still `issued`. For multiple Agents/Runners, claim the dispatch before execution.
+
+Claim:
+
+```bash
+python skills/design-harness/scripts/design_harness.py claim-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a
+```
+
+Claim behavior:
+- `issued -> claimed`;
+- stores `worker_id` and `claimed_at`;
+- repeating the claim from the same worker is idempotent;
+- another worker is rejected.
+
+A claimed dispatch must be completed by the same worker:
+
+```bash
+python skills/design-harness/scripts/design_harness.py complete-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --evidence-json @/tmp/evidence.json
+```
+
+To hand work back before completion:
+
+```bash
+python skills/design-harness/scripts/design_harness.py release-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --reason "worker shutting down"
+```
+
+Release behavior:
+- verifies ownership;
+- appends a release receipt with worker/reason/time;
+- clears `worker_id` / `claimed_at`;
+- returns the dispatch to `issued`;
+- keeps the same `dispatch_id` so provenance is not fragmented.
+
+After release, another worker may claim the same dispatch.
+
+## In-flight next action
+
+While an active dispatch is `issued` or `claimed`, `next-action` returns `kind=inflight` instead of constructing another stage dispatch. It includes:
+- active `dispatch_id`;
+- dispatch status;
+- worker ID when claimed;
+- handler;
+- evidence stage;
+- target state.
+
+This prevents resume/re-entry flows from mistaking already-dispatched work for new work.
