@@ -180,3 +180,35 @@ python -m unittest discover -s skills/design-harness/tests -p 'test_*.py'
 ```
 
 A passing test run verifies runtime mechanics only. It does not prove an individual product design is correct.
+
+
+## Batch page-family commands
+
+After a `page-family-batch` parent reaches `BASELINE_BOUND`, spawn page children:
+
+```bash
+python skills/design-harness/scripts/design_harness.py spawn-children \
+  --store <project>/.design-harness \
+  --run-id project-pages-v1 \
+  --child-scope-id P01 \
+  --child-scope-id P02
+```
+
+Inspect aggregate status:
+
+```bash
+python skills/design-harness/scripts/design_harness.py batch-status \
+  --store <project>/.design-harness \
+  --run-id project-pages-v1
+```
+
+Approve the whole ready batch:
+
+```bash
+python skills/design-harness/scripts/design_harness.py batch-approve \
+  --store <project>/.design-harness \
+  --run-id project-pages-v1 \
+  --actor human
+```
+
+See [batch-runs.md](batch-runs.md) for parent/child ownership, failure isolation, and shared-baseline rules.
