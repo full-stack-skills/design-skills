@@ -72,6 +72,20 @@ jobs:
           python skills/design-harness/scripts/design_harness.py timeline --store "$STORE" --run-id audit_smoke
           python skills/design-harness/scripts/design_harness.py trace-path --store "$STORE" --run-id audit_smoke --path /next_action/target
 
+      - name: Smoke test stable entity provenance
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id provenance_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/design-harness/scripts/design_harness.py record-artifact --store "$STORE" --run-id provenance_smoke --artifact-json '{"artifact_id":"artifact-1","type":"render","producer":"renderer","maturity":"candidate","status":"valid","location":"renders/p01.png","evidence_ids":[]}'
+          DISPATCH_ID="$(python skills/design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id provenance_smoke | python -c 'import json,sys; print(json.load(sys.stdin)["dispatch_id"])')"
+          RESULT="$(python skills/design-harness/scripts/design_harness.py complete-dispatch --store "$STORE" --run-id provenance_smoke --dispatch-id "$DISPATCH_ID" --evidence-json '{"stage":"baseline","status":"pass","producer":"product-design","observed_result":"baseline ready","artifact_ids":["artifact-1"]}')"
+          EVIDENCE_ID="$(RESULT="$RESULT" python -c 'import json,os; print(json.loads(os.environ["RESULT"])["evidence"][-1]["evidence_id"])')"
+          python skills/design-harness/scripts/design_harness.py correct --store "$STORE" --run-id provenance_smoke --affected-state BASELINE_BOUND --reason "invalidate baseline" --artifact-id artifact-1
+          python skills/design-harness/scripts/design_harness.py entity-index --store "$STORE" --run-id provenance_smoke
+          python skills/design-harness/scripts/design_harness.py entity-history --store "$STORE" --run-id provenance_smoke --type evidence --id "$EVIDENCE_ID"
+          python skills/design-harness/scripts/design_harness.py entity-history --store "$STORE" --run-id provenance_smoke --type artifact --id artifact-1
+          python skills/design-harness/scripts/design_harness.py provenance --store "$STORE" --run-id provenance_smoke --type evidence --id "$EVIDENCE_ID" --max-depth 2
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
