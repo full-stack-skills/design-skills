@@ -20,18 +20,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Run design harness unit tests
         run: python -m unittest discover -s skills/design-harness/tests -p 'test_*.py'
+
       - name: Verify CLI loads
         run: python skills/design-harness/scripts/design_harness.py --help
+
       - name: Verify SOP profile catalog
         run: |
           python skills/design-harness/scripts/design_harness.py profiles
-          python skills/design-harness/scripts/design_harness.py profile --name existing-product-next-page
+          python skills/design-harness/scripts/design_harness.py profile             --name existing-product-next-page
+
       - name: Smoke test profiled run
         run: |
           STORE="$(mktemp -d)"
           python skills/design-harness/scripts/design_harness.py start             --store "$STORE"             --product-id smoke             --product-version v1             --surface desktop-web             --scope-type page             --scope-id P01             --profile product-to-ui
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
@@ -39,3 +44,12 @@ jobs:
           python skills/design-harness/scripts/design_harness.py resume             --store "$STORE"             --run-id batch_smoke             --evidence-json '{"stage":"baseline","status":"pass","producer":"ci","observed_result":"shared baseline bound"}'
           python skills/design-harness/scripts/design_harness.py spawn-children             --store "$STORE"             --run-id batch_smoke             --child-scope-id P01             --child-scope-id P02
           python skills/design-harness/scripts/design_harness.py batch-status             --store "$STORE"             --run-id batch_smoke
+
+      - name: Smoke test skill dispatch loop
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start             --store "$STORE"             --run-id dispatch_smoke             --product-id smoke             --product-version v1             --surface desktop-web             --scope-type page             --scope-id P01             --profile product-to-ui
+          python skills/design-harness/scripts/design_harness.py next-action             --store "$STORE"             --run-id dispatch_smoke
+          DISPATCH_ID="$(python skills/design-harness/scripts/design_harness.py dispatch             --store "$STORE"             --run-id dispatch_smoke | python -c 'import json,sys; print(json.load(sys.stdin)["dispatch_id"])')"
+          python skills/design-harness/scripts/design_harness.py complete-dispatch             --store "$STORE"             --run-id dispatch_smoke             --dispatch-id "$DISPATCH_ID"             --evidence-json '{"stage":"baseline","status":"pass","producer":"product-design","observed_result":"baseline bound"}'
+          python skills/design-harness/scripts/design_harness.py next-action             --store "$STORE"             --run-id dispatch_smoke
