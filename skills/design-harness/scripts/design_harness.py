@@ -444,7 +444,7 @@ def approve_run(
     run_id: str,
     *,
     scope: str,
-    actor: str,
+    actor: str = "human",
     expected_scope: Optional[str] = None,
 ) -> Dict[str, Any]:
     run = load_run(store, run_id)
