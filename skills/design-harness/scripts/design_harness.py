@@ -47,6 +47,10 @@ class RunAmbiguityError(DesignHarnessError):
     pass
 
 
+class RunAuthorityConflictError(DesignHarnessError):
+    pass
+
+
 PRIMARY_STATES = [
     "INIT",
     "BASELINE_BOUND",
@@ -701,6 +705,24 @@ def ensure_run(
             profile_id=profile_id,
         )
         if existing is not None:
+            requested_authorities = deepcopy(authorities or {})
+            existing_authorities = existing.get("authorities") or {}
+            conflicts = {
+                key: {
+                    "requested": value,
+                    "existing": existing_authorities.get(key),
+                }
+                for key, value in requested_authorities.items()
+                if existing_authorities.get(key) != value
+            }
+            if conflicts:
+                details = ", ".join(
+                    f"{key}: requested={item['requested']} existing={item['existing']}"
+                    for key, item in sorted(conflicts.items())
+                )
+                raise RunAuthorityConflictError(
+                    f"active run authority conflict for {existing['run_id']}: {details}"
+                )
             return {"created": False, "run": existing}
 
         created = start_run(
