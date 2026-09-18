@@ -110,3 +110,18 @@ The agent directly invokes the specialist skill and later submits an unbound suc
 **Expected behavior with the skill**
 
 Use `next-action` to inspect the computed action, `dispatch` to issue one idempotent dispatch packet, execute the named handler with that packet's exact inputs, and return through `complete-dispatch` with evidence bound to the active dispatch ID. A mismatched/stale dispatch or wrong evidence stage must be rejected.
+
+
+## RED-08 — Two workers execute the same dispatch
+
+**Prompt**
+
+> Two Agent runners are both available. Let whichever responds fastest handle the current design stage.
+
+**Observed baseline failure**
+
+Both runners receive the same outstanding dispatch and execute it independently. The run may receive duplicate artifacts, provider writes, or conflicting evidence because there is no ownership record.
+
+**Expected behavior with the skill**
+
+A worker explicitly claims the active dispatch. Claiming is idempotent for the same worker and rejected for a different worker. A claimed dispatch can only be completed by its owning worker. The owner may explicitly release it with a reason so another worker can claim it.
