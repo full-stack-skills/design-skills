@@ -1,6 +1,6 @@
 {
   "id": "page-family-batch",
-  "version": 1,
+  "version": 2,
   "title": "Page Family Batch",
   "description": "Generate a family of pages against one pinned shell/design baseline while preserving per-page task and review evidence.",
   "entry_mode": "start",
@@ -17,36 +17,6 @@
       "evidence_stage": "baseline",
       "target_state": "BASELINE_BOUND",
       "handler": "product-design",
-      "required": true
-    },
-    {
-      "evidence_stage": "task",
-      "target_state": "TASK_READY",
-      "handler": "product-design",
-      "required": true
-    },
-    {
-      "evidence_stage": "continuity",
-      "target_state": "CONTINUITY_READY",
-      "handler": "ui-continuity",
-      "required": true
-    },
-    {
-      "evidence_stage": "candidate",
-      "target_state": "CANDIDATE_READY",
-      "handler": "renderer",
-      "required": true
-    },
-    {
-      "evidence_stage": "guard",
-      "target_state": "GUARD_REVIEWED",
-      "handler": "design-guard",
-      "required": true
-    },
-    {
-      "evidence_stage": "approval-ready",
-      "target_state": "AWAITING_USER_APPROVAL",
-      "handler": "design-harness",
       "required": true
     }
   ],
