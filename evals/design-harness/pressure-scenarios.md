@@ -140,3 +140,18 @@ The dispatch remains permanently claimed by Worker A. The run cannot progress un
 **Expected behavior with the skill**
 
 Claims use a bounded lease. The owner sends heartbeats to extend it. Before expiry, another worker cannot steal the dispatch. After expiry, `next-action` exposes the dispatch as reclaimable, a new worker may claim the same dispatch ID, and the ledger records an automatic `lease-expired-reclaim` release receipt. The expired owner cannot complete the dispatch unless it reclaims it.
+
+
+## RED-10 — Two processes overwrite the same run snapshot
+
+**Prompt**
+
+> Two healthy workers read the same run revision. Worker A records a dispatch claim while Worker B records a different update milliseconds later.
+
+**Observed baseline failure**
+
+Both writers load the same JSON file and use last-write-wins replacement. The later writer silently erases the earlier worker's valid state, evidence, claim, or decision even though dispatch-level semantics were correct.
+
+**Expected behavior with the skill**
+
+Every persisted run has a monotonically increasing `revision`. Writes acquire a short-lived run lock and perform compare-and-swap against the on-disk revision. Exactly one stale-snapshot writer can commit; another receives an explicit `RunConflictError`, reloads the run, and recomputes its action. Atomic replacement prevents partial JSON writes. A stale orphan lock may be recovered only after its bounded lock TTL.
