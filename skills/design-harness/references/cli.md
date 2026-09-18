@@ -243,3 +243,40 @@ python skills/design-harness/scripts/design_harness.py complete-dispatch \
 ```
 
 Do not call `dispatch` when the computed action is a control, human, verification, or done action. See [dispatch-contract.md](dispatch-contract.md).
+
+
+## Claim and release dispatches
+
+For concurrent Agent/Runner execution:
+
+```bash
+python skills/design-harness/scripts/design_harness.py claim-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a
+```
+
+Complete claimed work with the same worker:
+
+```bash
+python skills/design-harness/scripts/design_harness.py complete-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --evidence-json @/tmp/evidence.json
+```
+
+Release unfinished work:
+
+```bash
+python skills/design-harness/scripts/design_harness.py release-dispatch \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --dispatch-id dispatch_xxx \
+  --worker-id worker-a \
+  --reason "worker unavailable"
+```
+
+A second worker cannot steal a claimed dispatch. It may claim the dispatch only after an explicit release.
