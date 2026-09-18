@@ -161,6 +161,93 @@ class DesignHarnessRunDiscoveryTests(unittest.TestCase):
         self.assertTrue(result["created"])
         self.assertEqual(result["run"]["run_id"], "new_run")
 
+    def test_ensure_run_reuses_when_explicit_authorities_match(self):
+        existing = design_harness.start_run(
+            store=self.store,
+            run_id="matching_run",
+            product_id="demo",
+            product_version="v1",
+            surface="desktop-web",
+            scope_type="page",
+            scope_ids=["P01"],
+            authorities={"baseline": "shell@v2"},
+            profile_id="product-to-ui",
+        )
+
+        result = design_harness.ensure_run(
+            store=self.store,
+            product_id="demo",
+            product_version="v1",
+            surface="desktop-web",
+            scope_type="page",
+            scope_ids=["P01"],
+            authorities={"baseline": "shell@v2"},
+            profile_id="product-to-ui",
+        )
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["run"]["run_id"], existing["run_id"])
+
+    def test_ensure_run_rejects_authority_drift(self):
+        design_harness.start_run(
+            store=self.store,
+            run_id="authority_run",
+            product_id="demo",
+            product_version="v1",
+            surface="desktop-web",
+            scope_type="page",
+            scope_ids=["P01"],
+            authorities={
+                "feature_contract": "feature@v1",
+                "baseline": "shell@v1",
+            },
+            profile_id="product-to-ui",
+        )
+
+        with self.assertRaises(design_harness.RunAuthorityConflictError) as ctx:
+            design_harness.ensure_run(
+                store=self.store,
+                product_id="demo",
+                product_version="v1",
+                surface="desktop-web",
+                scope_type="page",
+                scope_ids=["P01"],
+                authorities={
+                    "feature_contract": "feature@v2",
+                    "baseline": "shell@v1",
+                },
+                profile_id="product-to-ui",
+            )
+
+        self.assertIn("feature_contract", str(ctx.exception))
+
+    def test_ensure_run_ignores_unspecified_authorities_when_resuming(self):
+        existing = design_harness.start_run(
+            store=self.store,
+            run_id="authority_resume",
+            product_id="demo",
+            product_version="v1",
+            surface="desktop-web",
+            scope_type="page",
+            scope_ids=["P01"],
+            authorities={"baseline": "shell@v2"},
+            profile_id="product-to-ui",
+        )
+
+        result = design_harness.ensure_run(
+            store=self.store,
+            product_id="demo",
+            product_version="v1",
+            surface="desktop-web",
+            scope_type="page",
+            scope_ids=["P01"],
+            authorities={},
+            profile_id="product-to-ui",
+        )
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["run"]["run_id"], existing["run_id"])
+
     def test_ensure_run_does_not_reuse_different_profile(self):
         self.create_run("ui_run", "P01", "product-to-ui")
 
