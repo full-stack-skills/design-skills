@@ -309,3 +309,21 @@ python skills/design-harness/scripts/design_harness.py heartbeat-dispatch \
 After expiry, `next-action` marks the active dispatch reclaimable. Another worker uses the normal `claim-dispatch` command with the same dispatch ID. The runtime records the expired takeover automatically.
 
 Do not try to complete work with an expired lease.
+
+
+## Run revision conflicts
+
+The JSON returned by `start`, `status`, and mutation commands includes `revision`.
+
+If a concurrent writer commits first, the runtime returns a `RunConflictError`. Treat it as an optimistic-concurrency signal:
+
+1. run `status` again;
+2. inspect the new revision/state/`computed_next_action`;
+3. decide whether the intended operation is still applicable;
+4. issue the operation again from fresh state.
+
+Do not edit the JSON manually to lower the revision and do not force overwrite.
+
+A `RunLockTimeoutError` means the short storage lock could not be acquired before its timeout. It does **not** prove the product/design operation failed. Retry after rereading status.
+
+Run lock files are runtime internals. Only locks older than the configured stale threshold are automatically recovered.
