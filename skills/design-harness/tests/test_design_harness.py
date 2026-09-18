@@ -162,6 +162,43 @@ class DesignHarnessRuntimeTests(unittest.TestCase):
         self.assertEqual(evidence_by_stage["navigation"]["validity"], "invalidated")
         self.assertEqual(evidence_by_stage["candidate"]["validity"], "invalidated")
 
+    def test_verify_requires_approved_state_and_pass_evidence(self):
+        run = self.start_run()
+
+        with self.assertRaises(design_harness.TransitionError):
+            design_harness.verify_run(
+                self.store,
+                run["run_id"],
+                {
+                    "stage": "delivery",
+                    "status": "pass",
+                    "producer": "playwright",
+                    "observed_result": "acceptance suite passed",
+                    "artifact_ids": [],
+                    "input_versions": {},
+                    "limitations": [],
+                },
+            )
+
+        run["state"] = "APPROVED"
+        design_harness.save_run(self.store, run)
+        verified = design_harness.verify_run(
+            self.store,
+            run["run_id"],
+            {
+                "stage": "delivery",
+                "status": "pass",
+                "producer": "playwright",
+                "observed_result": "acceptance suite passed",
+                "artifact_ids": [],
+                "input_versions": {},
+                "limitations": [],
+            },
+        )
+
+        self.assertEqual(verified["state"], "DELIVERY_VERIFIED")
+        self.assertEqual(verified["evidence"][-1]["stage"], "delivery")
+
     def test_archive_requires_delivery_verified_state(self):
         run = self.start_run()
 
