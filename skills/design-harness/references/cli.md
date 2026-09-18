@@ -404,3 +404,45 @@ python skills/design-harness/scripts/design_harness.py recover-run \
 Recovery requires a valid journal. If the materialized snapshot is newer than the journal, recovery refuses to overwrite it.
 
 See [journal-replay.md](journal-replay.md).
+
+
+## Historical audit and time travel
+
+Read one committed revision:
+
+```bash
+python skills/design-harness/scripts/design_harness.py snapshot-at \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --revision 12
+```
+
+Compare two revisions:
+
+```bash
+python skills/design-harness/scripts/design_harness.py diff-revisions \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --from-revision 12 \
+  --to-revision 18 \
+  --ignore-volatile
+```
+
+Inspect the revision timeline:
+
+```bash
+python skills/design-harness/scripts/design_harness.py timeline \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Trace one JSON Pointer path only when its value changes:
+
+```bash
+python skills/design-harness/scripts/design_harness.py trace-path \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --path /state
+```
+
+All historical audit commands verify the journal first and are read-only. See [audit-time-travel.md](audit-time-travel.md).
