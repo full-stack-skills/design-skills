@@ -40,6 +40,20 @@ The harness never redefines those skills' domain rules.
 
 A successful tool call is evidence for one step, not permission to skip later gates.
 
+## Dispatch execution loop
+
+When the next action is a specialist skill/tool, do not invoke it directly from conversational memory.
+
+1. Run `next-action` to inspect the computed transition.
+2. Run `dispatch` to issue an idempotent dispatch packet with exact scope, authority versions, valid upstream evidence/artifacts, handler, expected evidence stage, and stop conditions.
+3. Execute exactly the named handler against that packet.
+4. Return the result through `complete-dispatch --dispatch-id ... --evidence-json ...`.
+5. Only then inspect the next action.
+
+A wrong/stale dispatch ID or wrong evidence stage is rejected. While an active dispatch exists, direct `resume` cannot bypass it.
+
+See [references/dispatch-contract.md](references/dispatch-contract.md).
+
 ## Runtime entry
 
 Choose a built-in SOP profile before starting a multi-step run when the task class matches one. The catalog includes `product-to-ui`, `existing-product-next-page`, `page-family-batch`, `design-correction`, `stitch-high-fidelity-delivery`, and `design-to-implementation`. See [references/profiles.md](references/profiles.md).
@@ -63,11 +77,12 @@ Before a new run, search the target project's run ledger for the same bounded sc
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
+Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
 - No visual execution before required behavior/navigation decisions are either confirmed or explicitly marked as non-blocking assumptions.
+- No specialist execution may bypass an outstanding dispatch receipt; dispatch-bound evidence must return through `complete-dispatch`.
 - No candidate promotion while `design-guard` has blocking `FAIL` or `NEEDS DECISION` findings.
 - No user-approval state without explicit approval for the named scope.
 - No implementation/delivery verification claim from design-render evidence alone.
