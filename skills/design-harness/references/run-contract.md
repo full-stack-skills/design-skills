@@ -126,3 +126,44 @@ The claim is valid only before `lease_expires_at`. A heartbeat extends that time
 If the lease expires, a subsequent claim may transfer the same dispatch to another worker. The prior claim is preserved as a `lease-expired-reclaim` release receipt rather than deleting or replacing the original dispatch.
 
 Expired workers cannot complete the dispatch.
+
+
+## Revision and optimistic concurrency
+
+Every persisted run contains an integer `revision`.
+
+Rules:
+- a new run is created at revision `1`;
+- every successful persisted mutation increments revision exactly once;
+- a writer carries the revision it loaded as its expected revision;
+- while holding the run write lock, the runtime compares that expected revision with the current on-disk revision;
+- mismatch raises `RunConflictError`;
+- the stale writer must reload and recompute rather than overwrite.
+
+This is compare-and-swap (CAS) semantics for the JSON ledger.
+
+### Run write lock
+
+Each run uses:
+
+```text
+<store>/runs/<run-id>.lock
+```
+
+The lock is created with an exclusive filesystem create operation. The critical section is intentionally short: revision check, JSON serialization, fsync, and atomic replace.
+
+Default behavior:
+- lock acquisition timeout: 2 seconds;
+- stale-lock threshold: 30 seconds;
+- an unexpired lock causes bounded waiting and then `RunLockTimeoutError`;
+- a lock older than the stale threshold may be removed and recovered.
+
+The lock protects the CAS check itself. Revision protects against a writer that loaded its snapshot before another writer committed.
+
+### Atomic persistence
+
+The runtime writes to a unique temporary file in the same directory, flushes/fsyncs it, then atomically replaces the run JSON. A failed write must not expose partially serialized run state.
+
+### Legacy ledger migration
+
+A pre-revision run is interpreted as revision `0`. Its next successful save migrates it to revision `1`.
