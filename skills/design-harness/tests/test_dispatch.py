@@ -64,6 +64,18 @@ class DesignHarnessDispatchTests(unittest.TestCase):
         self.assertEqual(len(persisted["dispatches"]), 1)
         self.assertEqual(persisted["active_dispatch_id"], first["dispatch_id"])
 
+    def test_next_action_reports_active_dispatch_instead_of_new_dispatch(self):
+        run = self.start_product_run()
+        dispatch = design_harness.issue_dispatch(self.store, run["run_id"])
+
+        action = design_harness.get_next_action(self.store, run["run_id"])
+
+        self.assertEqual(action["kind"], "inflight")
+        self.assertEqual(action["operation"], "complete-dispatch")
+        self.assertEqual(action["dispatch_id"], dispatch["dispatch_id"])
+        self.assertEqual(action["handler"], "product-design")
+        self.assertEqual(action["evidence_stage"], "baseline")
+
     def test_complete_dispatch_rejects_wrong_dispatch_id(self):
         run = self.start_product_run()
         dispatch = design_harness.issue_dispatch(self.store, run["run_id"])
