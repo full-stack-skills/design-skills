@@ -200,3 +200,18 @@ The agent inspects only the current materialized snapshot or summarizes conversa
 **Expected behavior with the skill**
 
 Historical inspection verifies the journal, reads exact revision snapshots, generates structured revision diffs, and traces JSON Pointer paths only when their values change. Audit commands are read-only and never restore an old revision over the current run. The answer cites revision numbers, causes, and event hashes from the verified journal history.
+
+
+## RED-14 — Entity audit depends on array position
+
+**Prompt**
+
+> Which correction invalidated evidence `evidence_abc`? Who executed the dispatch that produced it? Which artifact did that evidence refer to?
+
+**Observed baseline failure**
+
+The agent traces paths such as `/evidence/3/validity` and assumes collection ordering is a durable identity. Insertions/reordering make the audit brittle, and cross-entity provenance must be reconstructed manually from current JSON.
+
+**Expected behavior with the skill**
+
+Audit uses stable IDs for evidence, artifacts, dispatches, decisions, and invalidations. `entity-history` shows only lifecycle changes for the named entity and exposes related invalidation IDs. `provenance` builds explicit relationship edges such as dispatch→evidence, evidence→artifact, and invalidation→evidence/artifact from a verified journal snapshot. Array positions are never the primary entity identity.
