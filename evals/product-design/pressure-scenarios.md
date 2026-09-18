@@ -82,3 +82,18 @@ The router directly sequences specialist skills in conversation but creates no p
 **Expected behavior with the skill ecosystem**
 
 `product-design` identifies the stages and hands multi-step execution to `design-harness`, which owns run state, evidence, reconciliation, approval gates, correction invalidation, and resume behavior.
+
+
+## RED-06 — Harness selected but SOP profile is not
+
+**Prompt**
+
+> Continue one approved product page, batch-generate six sibling pages, and separately fix a local design issue.
+
+**Observed baseline failure**
+
+The router sends every request to `design-harness` without selecting a task-specific SOP. The runtime then needs ad-hoc exceptions or reopens stages that should already be locked.
+
+**Expected behavior with the skill ecosystem**
+
+`product-design` selects the narrowest built-in profile: `existing-product-next-page` for one continued page, `page-family-batch` for shared-baseline siblings, and `design-correction` for scoped feedback. It leaves the profile's internal stage plan to `design-harness`.
