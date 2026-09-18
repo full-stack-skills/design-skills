@@ -446,3 +446,47 @@ python skills/design-harness/scripts/design_harness.py trace-path \
 ```
 
 All historical audit commands verify the journal first and are read-only. See [audit-time-travel.md](audit-time-travel.md).
+
+
+## Stable entity provenance
+
+Build the entity index:
+
+```bash
+python skills/design-harness/scripts/design_harness.py entity-index \
+  --store <project>/.design-harness \
+  --run-id design_xxx
+```
+
+Trace one stable entity across revisions:
+
+```bash
+python skills/design-harness/scripts/design_harness.py entity-history \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --type evidence \
+  --id evidence_xxx
+```
+
+Supported `--type` values:
+
+```text
+evidence
+artifact
+dispatch
+decision
+invalidation
+```
+
+Build its latest-snapshot provenance graph:
+
+```bash
+python skills/design-harness/scripts/design_harness.py provenance \
+  --store <project>/.design-harness \
+  --run-id design_xxx \
+  --type evidence \
+  --id evidence_xxx \
+  --max-depth 2
+```
+
+All entity-audit commands verify the journal first. See [entity-provenance.md](entity-provenance.md).
