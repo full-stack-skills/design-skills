@@ -1,5 +1,7 @@
 # Product Design Orchestration Workflow
 
+For multi-stage or resumable execution, `design-harness` owns persistent run state, evidence, approval gates, reconciliation, and correction invalidation. This document defines design routing and stage responsibilities; it is not a second run engine.
+
 ## Stage 0 — Recover state
 
 Collect:
@@ -61,4 +63,4 @@ Use `design-guard` for cross-artifact consistency.
 
 ## Stage 8 — Continue
 
-Record the next unfinished item. “Continue” resumes here instead of returning to Stage 0 discovery unless the baseline changed.
+Record the next unfinished item. When `design-harness` is active, persist it as the run's `next_action` with required input/evidence references. “Continue” resumes there instead of returning to Stage 0 discovery unless the baseline changed.
