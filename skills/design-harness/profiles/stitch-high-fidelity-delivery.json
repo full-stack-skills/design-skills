@@ -1,0 +1,48 @@
+{
+  "id": "stitch-high-fidelity-delivery",
+  "version": 1,
+  "title": "Stitch High Fidelity Delivery",
+  "description": "Take a contract-bound page through continuity, Stitch delivery, guard review, and explicit approval.",
+  "entry_mode": "start",
+  "required_authorities": [
+    "feature_contract",
+    "navigation_contract",
+    "baseline",
+    "design_task"
+  ],
+  "parallel_policy": "serial",
+  "child_scope": null,
+  "final_gate": "APPROVED",
+  "stages": [
+    {
+      "evidence_stage": "baseline",
+      "target_state": "BASELINE_BOUND",
+      "handler": "product-design",
+      "required": true
+    },
+    {
+      "evidence_stage": "continuity",
+      "target_state": "CONTINUITY_READY",
+      "handler": "ui-continuity",
+      "required": true
+    },
+    {
+      "evidence_stage": "candidate",
+      "target_state": "CANDIDATE_READY",
+      "handler": "stitch-delivery-harness",
+      "required": true
+    },
+    {
+      "evidence_stage": "guard",
+      "target_state": "GUARD_REVIEWED",
+      "handler": "design-guard",
+      "required": true
+    },
+    {
+      "evidence_stage": "approval-ready",
+      "target_state": "AWAITING_USER_APPROVAL",
+      "handler": "design-harness",
+      "required": true
+    }
+  ]
+}
