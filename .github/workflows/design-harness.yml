@@ -86,6 +86,22 @@ jobs:
           python skills/design-harness/scripts/design_harness.py entity-history --store "$STORE" --run-id provenance_smoke --type artifact --id artifact-1
           python skills/design-harness/scripts/design_harness.py provenance --store "$STORE" --run-id provenance_smoke --type evidence --id "$EVIDENCE_ID" --max-depth 2
 
+      - name: Smoke test cross-run authority impact
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id impact_a --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v2
+          python skills/design-harness/scripts/design_harness.py resume --store "$STORE" --run-id impact_a --evidence-json '{"stage":"baseline","status":"pass","producer":"product-design","observed_result":"baseline ready","input_versions":{"baseline":"shell@v2"}}'
+          python skills/design-harness/scripts/design_harness.py record-artifact --store "$STORE" --run-id impact_a --artifact-json '{"artifact_id":"impact-artifact","type":"render","producer":"renderer","maturity":"candidate","status":"valid","location":"renders/p01.png","input_versions":{"baseline":"shell@v2"},"evidence_ids":[]}'
+          python skills/design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id impact_a
+          python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id impact_b --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P02 --profile existing-product-next-page --authority feature_contract=feature@v1 --authority navigation_contract=navigation@v1 --authority baseline=shell@v2
+          BEFORE="$(python skills/design-harness/scripts/design_harness.py status --store "$STORE" --run-id impact_a | python -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+          python skills/design-harness/scripts/design_harness.py authority-impact --store "$STORE" --key baseline --value shell@v2
+          PLAN_ONE="$(python skills/design-harness/scripts/design_harness.py plan-authority-change --store "$STORE" --key baseline --from shell@v2 --to shell@v3)"
+          PLAN_TWO="$(python skills/design-harness/scripts/design_harness.py plan-authority-change --store "$STORE" --key baseline --from shell@v2 --to shell@v3)"
+          PLAN_ONE="$PLAN_ONE" PLAN_TWO="$PLAN_TWO" python -c 'import json,os; a=json.loads(os.environ["PLAN_ONE"]); b=json.loads(os.environ["PLAN_TWO"]); assert a["plan_id"] == b["plan_id"]; assert a["applied"] is False; assert a["affected_run_count"] == 2'
+          AFTER="$(python skills/design-harness/scripts/design_harness.py status --store "$STORE" --run-id impact_a | python -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+          test "$BEFORE" = "$AFTER"
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
