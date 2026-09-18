@@ -1605,6 +1605,430 @@ def plan_authority_change(
     }
 
 
+def _changes_dir(store: Path | str) -> Path:
+    return Path(store) / "changes"
+
+
+def authority_change_set_path(
+    store: Path | str,
+    change_set_id: str,
+) -> Path:
+    return _changes_dir(store) / f"{change_set_id}.json"
+
+
+def _write_change_set(
+    store: Path | str,
+    change_set: Dict[str, Any],
+) -> Dict[str, Any]:
+    path = authority_change_set_path(
+        store, change_set["change_set_id"]
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stored = deepcopy(change_set)
+    stored["updated_at"] = utc_now()
+    _write_materialized_snapshot(path, stored)
+    change_set.clear()
+    change_set.update(deepcopy(stored))
+    return deepcopy(stored)
+
+
+def load_authority_change_set(
+    store: Path | str,
+    change_set_id: str,
+) -> Dict[str, Any]:
+    path = authority_change_set_path(store, change_set_id)
+    if not path.exists():
+        raise RunNotFoundError(
+            f"authority change set not found: {change_set_id}"
+        )
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValidationError(
+            f"invalid authority change set JSON {change_set_id}: {exc}"
+        ) from exc
+    if value.get("change_set_id") != change_set_id:
+        raise ValidationError(
+            f"authority change set id mismatch: {change_set_id}"
+        )
+    return value
+
+
+def list_authority_change_sets(
+    store: Path | str,
+) -> list[Dict[str, Any]]:
+    directory = _changes_dir(store)
+    if not directory.exists():
+        return []
+    values = []
+    for path in sorted(directory.glob("*.json")):
+        try:
+            item = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if item.get("change_set_id"):
+            values.append(item)
+    values.sort(
+        key=lambda item: (
+            item.get("created_at") or "",
+            item.get("change_set_id") or "",
+        )
+    )
+    return values
+
+
+def prepare_authority_change_set(
+    store: Path | str,
+    *,
+    authority_key: str,
+    from_value: str,
+    to_value: str,
+    include_terminal: bool = False,
+) -> Dict[str, Any]:
+    plan = plan_authority_change(
+        store,
+        authority_key=authority_key,
+        from_value=from_value,
+        to_value=to_value,
+        include_terminal=include_terminal,
+    )
+    if not plan["complete"]:
+        raise ValidationError(
+            "cannot prepare authority change set from incomplete impact plan"
+        )
+    if not plan["run_impacts"]:
+        raise ValidationError(
+            "cannot prepare authority change set with no affected runs"
+        )
+
+    change_set_id = "change_" + plan["plan_id"].split("_", 1)[-1]
+    with _registry_lock(store):
+        path = authority_change_set_path(store, change_set_id)
+        if path.exists():
+            existing = load_authority_change_set(
+                store, change_set_id
+            )
+            if existing.get("plan_id") != plan["plan_id"]:
+                raise RunConflictError(
+                    f"change set id collision: {change_set_id}"
+                )
+            return existing
+
+        now = utc_now()
+        change_set = {
+            "schema_version": 1,
+            "change_set_id": change_set_id,
+            "kind": "authority-migration",
+            "plan_id": plan["plan_id"],
+            "authority_key": authority_key,
+            "from_value": from_value,
+            "to_value": to_value,
+            "include_terminal": include_terminal,
+            "status": "PREPARED",
+            "applied": False,
+            "created_at": now,
+            "updated_at": now,
+            "approved_at": None,
+            "approved_by": None,
+            "applied_at": None,
+            "run_changes": [],
+        }
+        for impact in plan["run_impacts"]:
+            change_set["run_changes"].append(
+                {
+                    "run_id": impact["run_id"],
+                    "expected_revision": impact["revision"],
+                    "recommended_affected_state": impact[
+                        "recommended_affected_state"
+                    ],
+                    "binding_paths": deepcopy(
+                        impact["binding_paths"]
+                    ),
+                    "affected_entities": deepcopy(
+                        impact["affected_entities"]
+                    ),
+                    "status": "PENDING",
+                    "applied_revision": None,
+                    "error": None,
+                }
+            )
+        change_set["run_changes"].sort(
+            key=lambda item: item["run_id"]
+        )
+        return _write_change_set(store, change_set)
+
+
+def approve_authority_change_set(
+    store: Path | str,
+    change_set_id: str,
+    *,
+    actor: str,
+) -> Dict[str, Any]:
+    if not actor or not actor.strip():
+        raise ValidationError("approval actor is required")
+    with _registry_lock(store):
+        change_set = load_authority_change_set(
+            store, change_set_id
+        )
+        if change_set["status"] == "APPROVED":
+            if change_set.get("approved_by") == actor:
+                return change_set
+            raise TransitionError(
+                f"change set {change_set_id} already approved by "
+                f"{change_set.get('approved_by')}"
+            )
+        if change_set["status"] != "PREPARED":
+            raise TransitionError(
+                f"change set {change_set_id} cannot be approved "
+                f"from status {change_set['status']}"
+            )
+        change_set["status"] = "APPROVED"
+        change_set["approved_by"] = actor
+        change_set["approved_at"] = utc_now()
+        return _write_change_set(store, change_set)
+
+
+def _matching_authority_migration_decision(
+    run: Dict[str, Any],
+    change_set_id: str,
+) -> Optional[Dict[str, Any]]:
+    for decision in run.get("decisions") or []:
+        if (
+            decision.get("kind") == "authority-migration"
+            and decision.get("change_set_id") == change_set_id
+        ):
+            return decision
+    return None
+
+
+def migrate_run_authority(
+    store: Path | str,
+    *,
+    change_set_id: str,
+    plan_id: str,
+    actor: str,
+    authority_key: str,
+    from_value: str,
+    to_value: str,
+    run_change: Dict[str, Any],
+) -> Dict[str, Any]:
+    run_id = run_change["run_id"]
+    run = load_run(store, run_id)
+
+    existing_decision = _matching_authority_migration_decision(
+        run, change_set_id
+    )
+    if existing_decision is not None:
+        return run
+
+    expected_revision = run_change["expected_revision"]
+    if run.get("revision") != expected_revision:
+        raise RunConflictError(
+            f"revision conflict for {run_id}: expected "
+            f"{expected_revision}, current {run.get('revision')}"
+        )
+
+    affected_dispatch_ids = set(
+        (run_change.get("affected_entities") or {}).get(
+            "dispatch", []
+        )
+    )
+    active_affected = []
+    for dispatch in run.get("dispatches") or []:
+        if (
+            dispatch.get("dispatch_id") in affected_dispatch_ids
+            and dispatch.get("status") in {"issued", "claimed"}
+        ):
+            active_affected.append(dispatch["dispatch_id"])
+    if active_affected:
+        raise TransitionError(
+            "active affected dispatch prevents authority migration: "
+            + ", ".join(sorted(active_affected))
+        )
+
+    binding_paths = set(run_change.get("binding_paths") or [])
+    authority_path = (
+        f"/authorities/{_json_pointer_escape(authority_key)}"
+    )
+    if authority_path in binding_paths:
+        current = (run.get("authorities") or {}).get(
+            authority_key
+        )
+        if current != from_value:
+            raise RunAuthorityConflictError(
+                f"authority {authority_key} for {run_id} changed: "
+                f"expected {from_value}, current {current}"
+            )
+        run.setdefault("authorities", {})[
+            authority_key
+        ] = to_value
+
+    if "/shared_baseline" in binding_paths:
+        if run.get("shared_baseline") != from_value:
+            raise RunAuthorityConflictError(
+                f"shared baseline for {run_id} changed: expected "
+                f"{from_value}, current {run.get('shared_baseline')}"
+            )
+        run["shared_baseline"] = to_value
+
+    affected_entities = run_change.get("affected_entities") or {}
+    evidence_ids = set(
+        affected_entities.get("evidence") or []
+    )
+    artifact_ids = set(
+        affected_entities.get("artifact") or []
+    )
+
+    invalidated_evidence = []
+    for evidence in run.get("evidence") or []:
+        if evidence.get("evidence_id") in evidence_ids:
+            if evidence.get("validity") != "invalidated":
+                evidence["validity"] = "invalidated"
+            invalidated_evidence.append(
+                evidence["evidence_id"]
+            )
+
+    invalidated_artifacts = []
+    for artifact in run.get("artifacts") or []:
+        if artifact.get("artifact_id") in artifact_ids:
+            if artifact.get("status") != "invalidated":
+                artifact["status"] = "invalidated"
+            invalidated_artifacts.append(
+                artifact["artifact_id"]
+            )
+
+    invalidation_id = f"invalidation_{uuid.uuid4().hex[:12]}"
+    invalidation = {
+        "invalidation_id": invalidation_id,
+        "at": utc_now(),
+        "reason": (
+            f"authority migration {authority_key}: "
+            f"{from_value} -> {to_value}"
+        ),
+        "affected_state": run_change[
+            "recommended_affected_state"
+        ],
+        "evidence_ids": sorted(set(invalidated_evidence)),
+        "artifact_ids": sorted(set(invalidated_artifacts)),
+        "change_set_id": change_set_id,
+        "plan_id": plan_id,
+        "authority_key": authority_key,
+        "from_value": from_value,
+        "to_value": to_value,
+    }
+    run.setdefault("invalidations", []).append(invalidation)
+
+    decision = {
+        "decision_id": f"decision_{uuid.uuid4().hex[:12]}",
+        "kind": "authority-migration",
+        "scope": _canonical_scope(run),
+        "actor": actor,
+        "change_set_id": change_set_id,
+        "plan_id": plan_id,
+        "authority_key": authority_key,
+        "from_value": from_value,
+        "to_value": to_value,
+        "at": utc_now(),
+    }
+    run.setdefault("decisions", []).append(decision)
+
+    run["correction"] = {
+        "reason": invalidation["reason"],
+        "resume_from": run_change[
+            "recommended_affected_state"
+        ],
+        "started_at": utc_now(),
+        "invalidation_id": invalidation_id,
+        "change_set_id": change_set_id,
+        "plan_id": plan_id,
+        "authority_change": {
+            "key": authority_key,
+            "from": from_value,
+            "to": to_value,
+        },
+    }
+    run["state"] = "CORRECTION"
+    _append_history(
+        run,
+        "authority_migrated",
+        change_set_id=change_set_id,
+        plan_id=plan_id,
+        authority_key=authority_key,
+        from_value=from_value,
+        to_value=to_value,
+        invalidation_id=invalidation_id,
+    )
+    return save_run(store, run)
+
+
+def apply_authority_change_set(
+    store: Path | str,
+    change_set_id: str,
+) -> Dict[str, Any]:
+    with _registry_lock(store):
+        change_set = load_authority_change_set(
+            store, change_set_id
+        )
+        if change_set["status"] == "APPLIED":
+            return change_set
+        if change_set["status"] not in {
+            "APPROVED",
+            "PARTIAL",
+            "BLOCKED",
+        }:
+            raise TransitionError(
+                f"change set {change_set_id} requires approval "
+                f"before apply; current status {change_set['status']}"
+            )
+
+        change_set["status"] = "APPLYING"
+        _write_change_set(store, change_set)
+
+        any_applied = any(
+            item.get("status") == "APPLIED"
+            for item in change_set["run_changes"]
+        )
+
+        for item in change_set["run_changes"]:
+            if item.get("status") == "APPLIED":
+                continue
+            item["status"] = "PENDING"
+            item["error"] = None
+            _write_change_set(store, change_set)
+            try:
+                migrated = migrate_run_authority(
+                    store,
+                    change_set_id=change_set_id,
+                    plan_id=change_set["plan_id"],
+                    actor=change_set["approved_by"],
+                    authority_key=change_set["authority_key"],
+                    from_value=change_set["from_value"],
+                    to_value=change_set["to_value"],
+                    run_change=item,
+                )
+                item["status"] = "APPLIED"
+                item["applied_revision"] = migrated[
+                    "revision"
+                ]
+                item["error"] = None
+                any_applied = True
+                _write_change_set(store, change_set)
+            except DesignHarnessError as exc:
+                item["status"] = "BLOCKED"
+                item["error"] = str(exc)
+                change_set["status"] = (
+                    "PARTIAL" if any_applied else "BLOCKED"
+                )
+                change_set["applied"] = False
+                _write_change_set(store, change_set)
+                return deepcopy(change_set)
+
+        change_set["status"] = "APPLIED"
+        change_set["applied"] = True
+        change_set["applied_at"] = utc_now()
+        return _write_change_set(store, change_set)
+
+
 def _write_materialized_snapshot(
     path: Path,
     run: Dict[str, Any],
@@ -3388,6 +3812,29 @@ def build_parser() -> argparse.ArgumentParser:
     authority_plan.add_argument("--to", required=True, dest="to_value")
     authority_plan.add_argument("--include-terminal", action="store_true")
 
+    prepare_change = sub.add_parser("prepare-authority-change")
+    prepare_change.add_argument("--store", required=True)
+    prepare_change.add_argument("--key", required=True, dest="authority_key")
+    prepare_change.add_argument("--from", required=True, dest="from_value")
+    prepare_change.add_argument("--to", required=True, dest="to_value")
+    prepare_change.add_argument("--include-terminal", action="store_true")
+
+    changes = sub.add_parser("change-sets")
+    changes.add_argument("--store", required=True)
+
+    change = sub.add_parser("change-set")
+    change.add_argument("--store", required=True)
+    change.add_argument("--id", required=True, dest="change_set_id")
+
+    approve_change = sub.add_parser("approve-authority-change")
+    approve_change.add_argument("--store", required=True)
+    approve_change.add_argument("--id", required=True, dest="change_set_id")
+    approve_change.add_argument("--actor", required=True)
+
+    apply_change = sub.add_parser("apply-authority-change")
+    apply_change.add_argument("--store", required=True)
+    apply_change.add_argument("--id", required=True, dest="change_set_id")
+
     return parser
 
 
@@ -3606,6 +4053,36 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 from_value=args.from_value,
                 to_value=args.to_value,
                 include_terminal=args.include_terminal,
+            )
+        elif args.command == "prepare-authority-change":
+            result = prepare_authority_change_set(
+                args.store,
+                authority_key=args.authority_key,
+                from_value=args.from_value,
+                to_value=args.to_value,
+                include_terminal=args.include_terminal,
+            )
+        elif args.command == "change-sets":
+            result = {
+                "change_sets": list_authority_change_sets(
+                    args.store
+                )
+            }
+        elif args.command == "change-set":
+            result = load_authority_change_set(
+                args.store,
+                args.change_set_id,
+            )
+        elif args.command == "approve-authority-change":
+            result = approve_authority_change_set(
+                args.store,
+                args.change_set_id,
+                actor=args.actor,
+            )
+        elif args.command == "apply-authority-change":
+            result = apply_authority_change_set(
+                args.store,
+                args.change_set_id,
             )
         else:
             parser.error(f"unknown command: {args.command}")
