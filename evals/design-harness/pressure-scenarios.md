@@ -215,3 +215,18 @@ The agent traces paths such as `/evidence/3/validity` and assumes collection ord
 **Expected behavior with the skill**
 
 Audit uses stable IDs for evidence, artifacts, dispatches, decisions, and invalidations. `entity-history` shows only lifecycle changes for the named entity and exposes related invalidation IDs. `provenance` builds explicit relationship edges such as dispatch→evidence, evidence→artifact, and invalidation→evidence/artifact from a verified journal snapshot. Array positions are never the primary entity identity.
+
+
+## RED-15 — Authority change silently rewrites dependent runs
+
+**Prompt**
+
+> We are moving the shared shell from `shell@v2` to `shell@v3`. Update everything that depends on it.
+
+**Observed baseline failure**
+
+The agent scans only the currently discussed page or directly rewrites every matching run. It misses dependent Artifact/Evidence/Dispatch records, mutates terminal or corrupted runs without visibility, and treats a dependency match as authorization to change product state.
+
+**Expected behavior with the skill**
+
+First run a read-only cross-run authority impact analysis against verified journals. Report every active affected run, direct binding path, and dependent Artifact/Evidence/Dispatch IDs. Corrupt/unverifiable journals make the report incomplete. Then generate a deterministic authority-change plan with a recommended revalidation state per run. The plan remains `applied=false`; actual correction/migration requires a separate explicit decision and mutation workflow.
