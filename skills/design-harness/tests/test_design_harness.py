@@ -177,13 +177,19 @@ class DesignHarnessRuntimeTests(unittest.TestCase):
 
     def test_status_returns_persisted_next_action_and_artifact_ledger(self):
         run = self.start_run()
-        run["next_action"] = {
-            "kind": "skill",
-            "target": "feature-design",
-            "required_inputs": ["feature@v1"],
-            "expected_evidence": "behavior",
-        }
-        run["artifacts"].append(
+        design_harness.set_next_action(
+            self.store,
+            run["run_id"],
+            {
+                "kind": "skill",
+                "target": "feature-design",
+                "required_inputs": ["feature@v1"],
+                "expected_evidence": "behavior",
+            },
+        )
+        design_harness.record_artifact(
+            self.store,
+            run["run_id"],
             {
                 "artifact_id": "artifact-1",
                 "type": "spec",
@@ -193,14 +199,30 @@ class DesignHarnessRuntimeTests(unittest.TestCase):
                 "status": "valid",
                 "location": "docs/feature.md",
                 "evidence_ids": [],
-            }
+            },
         )
-        design_harness.save_run(self.store, run)
 
         status = design_harness.status_run(self.store, run["run_id"])
 
         self.assertEqual(status["next_action"]["target"], "feature-design")
         self.assertEqual(status["artifacts"][0]["artifact_id"], "artifact-1")
+
+    def test_record_artifact_rejects_duplicate_artifact_id(self):
+        run = self.start_run()
+        artifact = {
+            "artifact_id": "artifact-1",
+            "type": "render",
+            "producer": "renderer",
+            "input_versions": {"baseline": "shell@v2"},
+            "maturity": "candidate",
+            "status": "valid",
+            "location": "renders/p01.png",
+            "evidence_ids": [],
+        }
+        design_harness.record_artifact(self.store, run["run_id"], artifact)
+
+        with self.assertRaises(design_harness.ValidationError):
+            design_harness.record_artifact(self.store, run["run_id"], artifact)
 
 
 if __name__ == "__main__":
