@@ -38,6 +38,8 @@ The harness never redefines those skills' domain rules.
 
 **Only execute the next transition allowed by the run state.**
 
+Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state.
+
 A successful tool call is evidence for one step, not permission to skip later gates.
 
 ## Dispatch execution loop
@@ -86,6 +88,8 @@ Use [references/run-contract.md](references/run-contract.md) for persistent stat
 - No visual execution before required behavior/navigation decisions are either confirmed or explicitly marked as non-blocking assumptions.
 - No specialist execution may bypass an outstanding dispatch receipt; dispatch-bound evidence must return through `complete-dispatch`.
 - Expired claims are reclaimable, but an expired owner may not submit evidence until it reclaims the dispatch.
+- A `RunConflictError` means another writer committed first. Reload the run, inspect `next-action`, and retry the business operation from fresh state; never force-write the stale snapshot.
+- Run lock timeout is not evidence that the business operation failed. Do not delete an unexpired lock or overwrite the ledger.
 - No candidate promotion while `design-guard` has blocking `FAIL` or `NEEDS DECISION` findings.
 - No user-approval state without explicit approval for the named scope.
 - No implementation/delivery verification claim from design-render evidence alone.
