@@ -79,3 +79,26 @@ For a page family:
 - create child page tasks/runs referencing that version;
 - do not allow child runs to silently fork the baseline;
 - promote a baseline change explicitly, then invalidate/review affected children.
+
+
+## Dispatch ledger
+
+Each specialist execution is recorded in `dispatches`.
+
+A dispatch records:
+- `contract_version`;
+- `dispatch_id`;
+- `run_id`;
+- bound profile ID/version;
+- `state_at_issue` and `stage_cursor`;
+- `handler`;
+- `evidence_stage` and target state;
+- exact scope and input snapshot;
+- expected evidence contract;
+- stop conditions;
+- lifecycle status;
+- resulting `evidence_id`.
+
+The run stores at most one `active_dispatch_id`. Re-issuing while it is still `issued` returns the same dispatch packet.
+
+Historical dispatches remain in the ledger after completion, reconciliation, correction, or archival.
