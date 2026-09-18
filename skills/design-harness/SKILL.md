@@ -42,13 +42,15 @@ A successful tool call is evidence for one step, not permission to skip later ga
 
 ## Runtime entry
 
+Choose a built-in SOP profile before starting a multi-step run when the task class matches one. The catalog includes `product-to-ui`, `existing-product-next-page`, `page-family-batch`, `design-correction`, `stitch-high-fidelity-delivery`, and `design-to-implementation`. See [references/profiles.md](references/profiles.md).
+
 Use the bundled pure-stdlib runtime for multi-step execution:
 
 ```bash
 python skills/design-harness/scripts/design_harness.py status --store <project>/.design-harness --run-id <run-id>
 ```
 
-Before a new run, search the target project's run ledger for the same bounded scope. Existing runs are resumed rather than duplicated. Full commands and payloads are in [references/cli.md](references/cli.md).
+Before a new run, search the target project's run ledger for the same bounded scope. Existing runs are resumed rather than duplicated. Start new runs with `--profile <id>` when a profile applies. Full commands and payloads are in [references/cli.md](references/cli.md).
 
 ## Run lifecycle
 
@@ -61,7 +63,7 @@ Before a new run, search the target project's run ledger for the same bounded sc
 7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
 8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
 
-Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, and [references/cli.md](references/cli.md) for executable commands.
+Use [references/run-contract.md](references/run-contract.md) for persistent state, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/profiles.md](references/profiles.md) for SOP selection, and [references/cli.md](references/cli.md) for executable commands.
 
 ## Hard gates
 
