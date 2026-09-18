@@ -2,7 +2,7 @@
 
 ## Project
 
-`design-skills` — curated collection of 10 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
+`design-skills` — curated collection of 11 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
 
 ## Skills
 
@@ -18,6 +18,7 @@
 | `ui-continuity` | `skills/ui-continuity/` | Continue approved UI families with explicit change budgets and scoped feedback |
 | `product-design` | `skills/product-design/` | Orchestrate staged product-design work through existing specialist skills |
 | `design-guard` | `skills/design-guard/` | Audit cross-artifact design consistency and promotion evidence |
+| `design-harness` | `skills/design-harness/` | Execute resumable design SOP runs with evidence, approvals, reconciliation, and correction gates |
 
 ## Directory Structure
 
