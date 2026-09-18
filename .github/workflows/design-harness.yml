@@ -1,0 +1,26 @@
+name: Design Harness
+
+on:
+  push:
+    paths:
+      - "skills/design-harness/**"
+      - "evals/design-harness/**"
+      - ".github/workflows/design-harness.yml"
+  pull_request:
+    paths:
+      - "skills/design-harness/**"
+      - "evals/design-harness/**"
+      - ".github/workflows/design-harness.yml"
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run design harness unit tests
+        run: python -m unittest discover -s skills/design-harness/tests -p 'test_*.py'
+      - name: Verify CLI loads
+        run: python skills/design-harness/scripts/design_harness.py --help
