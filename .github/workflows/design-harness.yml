@@ -61,6 +61,17 @@ jobs:
           python skills/design-harness/scripts/design_harness.py status --store "$STORE" --run-id journal_smoke
           python skills/design-harness/scripts/design_harness.py verify-journal --store "$STORE" --run-id journal_smoke
 
+      - name: Smoke test historical audit time travel
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/design-harness/scripts/design_harness.py start --store "$STORE" --run-id audit_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/design-harness/scripts/design_harness.py set-next-action --store "$STORE" --run-id audit_smoke --action-json '{"kind":"skill","target":"feature-design","expected_evidence":"behavior"}'
+          python skills/design-harness/scripts/design_harness.py snapshot-at --store "$STORE" --run-id audit_smoke --revision 1
+          python skills/design-harness/scripts/design_harness.py snapshot-at --store "$STORE" --run-id audit_smoke --revision 2
+          python skills/design-harness/scripts/design_harness.py diff-revisions --store "$STORE" --run-id audit_smoke --from-revision 1 --to-revision 2 --ignore-volatile
+          python skills/design-harness/scripts/design_harness.py timeline --store "$STORE" --run-id audit_smoke
+          python skills/design-harness/scripts/design_harness.py trace-path --store "$STORE" --run-id audit_smoke --path /next_action/target
+
       - name: Smoke test batch run
         run: |
           STORE="$(mktemp -d)"
