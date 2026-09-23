@@ -12,6 +12,7 @@
   "skills": [
     "./skills/adobe-xd",
     "./skills/algorithmic-art",
+    "./skills/better-icons",
     "./skills/brand-guidelines",
     "./skills/canvas-design",
     "./skills/cross-platform-mvp-ui-alignment",
@@ -20,6 +21,9 @@
     "./skills/ui-continuity",
     "./skills/product-design",
     "./skills/design-guard",
-    "./skills/design-harness"
+    "./skills/design-harness",
+    "./skills/huashu-design",
+    "./skills/remotion",
+    "./skills/theme-factory"
   ]
 }
