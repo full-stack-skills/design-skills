@@ -1,0 +1,123 @@
+name: UI Design Harness
+
+on:
+  push:
+    paths:
+      - "skills/ui-design-harness/**"
+      - "evals/ui-design-harness/**"
+      - ".github/workflows/ui-design-harness.yml"
+  pull_request:
+    paths:
+      - "skills/ui-design-harness/**"
+      - "evals/ui-design-harness/**"
+      - ".github/workflows/ui-design-harness.yml"
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run design harness unit tests
+        run: python -m unittest discover -s skills/ui-design-harness/tests -p 'test_*.py'
+
+      - name: Verify CLI loads
+        run: python skills/ui-design-harness/scripts/design_harness.py --help
+
+      - name: Verify SOP profile catalog
+        run: |
+          python skills/ui-design-harness/scripts/design_harness.py profiles
+          python skills/ui-design-harness/scripts/design_harness.py profile --name existing-product-next-page
+
+      - name: Smoke test profiled run
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+
+      - name: Smoke test run discovery registry
+        run: |
+          STORE="$(mktemp -d)"
+          FIRST="$(python skills/ui-design-harness/scripts/design_harness.py ensure-run --store "$STORE" --run-id ensure_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v1)"
+          SECOND="$(python skills/ui-design-harness/scripts/design_harness.py ensure-run --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v1)"
+          FIRST="$FIRST" SECOND="$SECOND" python -c 'import json,os; a=json.loads(os.environ["FIRST"]); b=json.loads(os.environ["SECOND"]); assert a["created"] is True; assert b["created"] is False; assert a["run"]["run_id"] == b["run"]["run_id"] == "ensure_smoke"'
+          python skills/ui-design-harness/scripts/design_harness.py runs --store "$STORE"
+          if python skills/ui-design-harness/scripts/design_harness.py ensure-run --store "$STORE" --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v2; then
+            echo "authority drift should have failed"
+            exit 1
+          fi
+
+      - name: Smoke test journal replay recovery
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id journal_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/ui-design-harness/scripts/design_harness.py set-next-action --store "$STORE" --run-id journal_smoke --action-json '{"kind":"skill","target":"ui-design-feature","expected_evidence":"behavior"}'
+          python skills/ui-design-harness/scripts/design_harness.py verify-journal --store "$STORE" --run-id journal_smoke
+          python skills/ui-design-harness/scripts/design_harness.py replay-run --store "$STORE" --run-id journal_smoke
+          rm "$STORE/runs/journal_smoke.json"
+          python skills/ui-design-harness/scripts/design_harness.py recover-run --store "$STORE" --run-id journal_smoke
+          python skills/ui-design-harness/scripts/design_harness.py status --store "$STORE" --run-id journal_smoke
+          python skills/ui-design-harness/scripts/design_harness.py verify-journal --store "$STORE" --run-id journal_smoke
+
+      - name: Smoke test historical audit time travel
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id audit_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/ui-design-harness/scripts/design_harness.py set-next-action --store "$STORE" --run-id audit_smoke --action-json '{"kind":"skill","target":"ui-design-feature","expected_evidence":"behavior"}'
+          python skills/ui-design-harness/scripts/design_harness.py snapshot-at --store "$STORE" --run-id audit_smoke --revision 1
+          python skills/ui-design-harness/scripts/design_harness.py snapshot-at --store "$STORE" --run-id audit_smoke --revision 2
+          python skills/ui-design-harness/scripts/design_harness.py diff-revisions --store "$STORE" --run-id audit_smoke --from-revision 1 --to-revision 2 --ignore-volatile
+          python skills/ui-design-harness/scripts/design_harness.py timeline --store "$STORE" --run-id audit_smoke
+          python skills/ui-design-harness/scripts/design_harness.py trace-path --store "$STORE" --run-id audit_smoke --path /next_action/target
+
+      - name: Smoke test stable entity provenance
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id provenance_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/ui-design-harness/scripts/design_harness.py record-artifact --store "$STORE" --run-id provenance_smoke --artifact-json '{"artifact_id":"artifact-1","type":"render","producer":"renderer","maturity":"candidate","status":"valid","location":"renders/p01.png","evidence_ids":[]}'
+          DISPATCH_ID="$(python skills/ui-design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id provenance_smoke | python -c 'import json,sys; print(json.load(sys.stdin)["dispatch_id"])')"
+          RESULT="$(python skills/ui-design-harness/scripts/design_harness.py complete-dispatch --store "$STORE" --run-id provenance_smoke --dispatch-id "$DISPATCH_ID" --evidence-json '{"stage":"baseline","status":"pass","producer":"ui-design-spec","observed_result":"baseline ready","artifact_ids":["artifact-1"]}')"
+          EVIDENCE_ID="$(RESULT="$RESULT" python -c 'import json,os; print(json.loads(os.environ["RESULT"])["evidence"][-1]["evidence_id"])')"
+          python skills/ui-design-harness/scripts/design_harness.py correct --store "$STORE" --run-id provenance_smoke --affected-state BASELINE_BOUND --reason "invalidate baseline" --artifact-id artifact-1
+          python skills/ui-design-harness/scripts/design_harness.py entity-index --store "$STORE" --run-id provenance_smoke
+          python skills/ui-design-harness/scripts/design_harness.py entity-history --store "$STORE" --run-id provenance_smoke --type evidence --id "$EVIDENCE_ID"
+          python skills/ui-design-harness/scripts/design_harness.py entity-history --store "$STORE" --run-id provenance_smoke --type artifact --id artifact-1
+          python skills/ui-design-harness/scripts/design_harness.py provenance --store "$STORE" --run-id provenance_smoke --type evidence --id "$EVIDENCE_ID" --max-depth 2
+
+      - name: Smoke test cross-run authority impact
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id impact_a --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui --authority baseline=shell@v2
+          python skills/ui-design-harness/scripts/design_harness.py resume --store "$STORE" --run-id impact_a --evidence-json '{"stage":"baseline","status":"pass","producer":"ui-design-spec","observed_result":"baseline ready","input_versions":{"baseline":"shell@v2"}}'
+          python skills/ui-design-harness/scripts/design_harness.py record-artifact --store "$STORE" --run-id impact_a --artifact-json '{"artifact_id":"impact-artifact","type":"render","producer":"renderer","maturity":"candidate","status":"valid","location":"renders/p01.png","input_versions":{"baseline":"shell@v2"},"evidence_ids":[]}'
+          python skills/ui-design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id impact_a
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id impact_b --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P02 --profile existing-product-next-page --authority feature_contract=feature@v1 --authority navigation_contract=navigation@v1 --authority baseline=shell@v2
+          BEFORE="$(python skills/ui-design-harness/scripts/design_harness.py status --store "$STORE" --run-id impact_a | python -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+          python skills/ui-design-harness/scripts/design_harness.py authority-impact --store "$STORE" --key baseline --value shell@v2
+          PLAN_ONE="$(python skills/ui-design-harness/scripts/design_harness.py plan-authority-change --store "$STORE" --key baseline --from shell@v2 --to shell@v3)"
+          PLAN_TWO="$(python skills/ui-design-harness/scripts/design_harness.py plan-authority-change --store "$STORE" --key baseline --from shell@v2 --to shell@v3)"
+          PLAN_ONE="$PLAN_ONE" PLAN_TWO="$PLAN_TWO" python -c 'import json,os; a=json.loads(os.environ["PLAN_ONE"]); b=json.loads(os.environ["PLAN_TWO"]); assert a["plan_id"] == b["plan_id"]; assert a["applied"] is False; assert a["affected_run_count"] == 2'
+          AFTER="$(python skills/ui-design-harness/scripts/design_harness.py status --store "$STORE" --run-id impact_a | python -c 'import json,sys; print(json.load(sys.stdin)["revision"])')"
+          test "$BEFORE" = "$AFTER"
+
+      - name: Smoke test batch run
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id batch_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page-family --scope-id project-pages --profile page-family-batch --authority feature_contract=feature@v1 --authority navigation_contract=navigation@v1 --authority baseline=shell@v1
+          python skills/ui-design-harness/scripts/design_harness.py resume --store "$STORE" --run-id batch_smoke --evidence-json '{"stage":"baseline","status":"pass","producer":"ci","observed_result":"shared baseline bound"}'
+          python skills/ui-design-harness/scripts/design_harness.py spawn-children --store "$STORE" --run-id batch_smoke --child-scope-id P01 --child-scope-id P02
+          python skills/ui-design-harness/scripts/design_harness.py batch-status --store "$STORE" --run-id batch_smoke
+
+      - name: Smoke test skill dispatch worker loop
+        run: |
+          STORE="$(mktemp -d)"
+          python skills/ui-design-harness/scripts/design_harness.py start --store "$STORE" --run-id dispatch_smoke --product-id smoke --product-version v1 --surface desktop-web --scope-type page --scope-id P01 --profile product-to-ui
+          python skills/ui-design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke
+          DISPATCH_ID="$(python skills/ui-design-harness/scripts/design_harness.py dispatch --store "$STORE" --run-id dispatch_smoke | python -c 'import json,sys; print(json.load(sys.stdin)["dispatch_id"])')"
+          python skills/ui-design-harness/scripts/design_harness.py claim-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --lease-seconds 60
+          python skills/ui-design-harness/scripts/design_harness.py heartbeat-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --lease-seconds 120
+          python skills/ui-design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke
+          python skills/ui-design-harness/scripts/design_harness.py complete-dispatch --store "$STORE" --run-id dispatch_smoke --dispatch-id "$DISPATCH_ID" --worker-id ci-worker --evidence-json '{"stage":"baseline","status":"pass","producer":"ui-design-spec","observed_result":"baseline bound"}'
+          python skills/ui-design-harness/scripts/design_harness.py next-action --store "$STORE" --run-id dispatch_smoke

@@ -14,3 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 scripts/lint_skills.py
+      - name: Check functional design fixtures and source snapshots
+        run: python3 -m unittest discover -s skills/ui-design-spec/scripts -p 'test_*.py'
+      - name: Check complete functional design example
+        run: python3 skills/ui-design-spec/scripts/validate_functional_design.py skills/ui-design-spec/examples/agent-browser/docs/functional-design

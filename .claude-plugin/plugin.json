@@ -16,14 +16,14 @@
     "./skills/brand-guidelines",
     "./skills/canvas-design",
     "./skills/cross-platform-mvp-ui-alignment",
-    "./skills/feature-design",
-    "./skills/navigation-design",
-    "./skills/ui-continuity",
-    "./skills/product-design",
-    "./skills/design-guard",
-    "./skills/design-harness",
-    "./skills/huashu-design",
+    "./skills/ui-design-feature",
+    "./skills/ui-design-nav",
+    "./skills/ui-design-continuity",
+    "./skills/ui-design-spec",
+    "./skills/ui-design-review",
+    "./skills/ui-design-harness",
+    "./skills/ui-design-visual",
     "./skills/remotion",
-    "./skills/theme-factory"
+    "./skills/ui-design-theme"
   ]
 }

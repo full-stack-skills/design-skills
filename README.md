@@ -24,7 +24,7 @@ English | [简体中文](./README.zh-CN.md)
 
 **Design Tools Skills** is a curated collection of Agent Skills for AI coding agents, part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem maintained by [PartMe.AI](https://github.com/partme-ai).
 
-This package currently registers **11 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
+This package currently registers **15 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
 
 ## 📦 Install
 
@@ -38,7 +38,7 @@ Or install specific skills:
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 Skills (11)
+## 🎯 Skills (15)
 
 | Skill | Description |
 |-------|-------------|
@@ -47,12 +47,16 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
 | `cross-platform-mvp-ui-alignment` | Align cross-platform MVP specifications, product states, design language, and matching Phone/Tablet UI asset sets. |
-| `feature-design` | Turn underspecified product features into observable behavior contracts covering actions, states, permissions, evidence, and acceptance. |
-| `navigation-design` | Define scoped navigation, routes, activation, context propagation, deep links, and return contracts without hierarchy drift. |
-| `ui-continuity` | Continue approved UI families with explicit immutable regions, change budgets, scoped feedback, and baseline-vs-candidate checks. |
-| `product-design` | Orchestrate multi-stage product-design work across feature, navigation, documentation, continuity, rendering, review, and verification without duplicating specialist skills. |
-| `design-guard` | Audit cross-artifact design consistency, distinguish mechanical and judgment checks, and block promotion when evidence or authority is unresolved. |
-| `design-harness` | Execute resumable, evidence-backed design SOPs across specialist skills, tools, approvals, corrections, reconciliation, and promotion gates. |
+| `ui-design-feature` | Turn underspecified product features into observable behavior contracts covering actions, states, permissions, evidence, and acceptance. |
+| `ui-design-nav` | Define scoped navigation, routes, activation, context propagation, deep links, and return contracts without hierarchy drift. |
+| `ui-design-continuity` | Continue approved UI families with explicit immutable regions, change budgets, scoped feedback, and baseline-vs-candidate checks. |
+| `ui-design-spec` | Unified entry: spec mode produces complete feature/page/flow/layout/task packages with Agent Browser and Evently examples; execution mode hands off to Harness and specialists. |
+| `ui-design-review` | Audit cross-artifact design consistency, distinguish mechanical and judgment checks, and block promotion when evidence or authority is unresolved. |
+| `ui-design-harness` | Execute resumable, evidence-backed design SOPs across specialist skills, tools, approvals, corrections, reconciliation, and promotion gates. |
+| `ui-design-theme` | Apply reusable artifact themes. |
+| `remotion` | Create programmatic videos with Remotion. |
+| `ui-design-visual` | Create high-fidelity HTML design prototypes. |
+| `better-icons` | Find and use icons. |
 
 ## 🤖 Supported Agents
 

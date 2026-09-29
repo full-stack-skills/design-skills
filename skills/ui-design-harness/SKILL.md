@@ -1,0 +1,152 @@
+---
+name: ui-design-harness
+description: Use to execute a selected ui-design-spec workflow or resume an existing design run with persistent progress, specialist dispatch, recovery, retries and evidence gates. Pure specification writing uses ui-design-spec spec mode without requiring a run.
+license: Apache-2.0
+---
+
+# UI Design Harness
+
+## Overview
+
+Execute ui-design-spec SOPs as resumable, evidence-backed runs. `ui-design-spec` decides **what design work is needed**; `ui-design-harness` controls **how that work advances, pauses, resumes, reconciles, and gets promoted** without losing authority or repeating completed stages.
+
+## When to use this skill
+
+Use when:
+- a selected design workflow needs persistent coordination across specialist skills or tools;
+- the user asks to resume an existing design execution or continue its next page/stage;
+- page generation, review, approval, and verification must be gated;
+- corrections should invalidate only affected downstream artifacts;
+- several pages must share one frozen shell/design baseline;
+- tool outcomes may be unknown, asynchronous, or insufficient to prove completion.
+
+Do not use merely because a specification contains multiple documents, or for a one-shot visual idea where no persistent workflow, approval, or evidence trail is required. “Continue the specifications” stays in ui-design-spec spec mode.
+
+## Relationship to other skills
+
+- `ui-design-spec` selects the initial scope/profile when routing is needed; consume that selection once. A known profile or existing run goes directly to execution/resumption without requiring another routing call.
+- `ui-design-spec` spec mode maintains the complete package; existing behavior/navigation chapters are versioned inputs, not instructions to regenerate them.
+- `ui-design-feature` owns product behavior contracts.
+- `ui-design-nav` owns navigation/route contracts.
+- `ui-design-theme` owns the selected theme contract; task authority references its identity/version/maturity before rendering. Reuse an existing choice.
+- `ui-design-continuity` owns initial/inherit/correction preflight constraints and scoped feedback; post-render comparison belongs to review.
+- `ui-design-review` owns cross-artifact consistency review.
+- Stitch/Pencil/`ui-design-visual` and other renderers own visual execution.
+- Provider-specific harnesses such as `stitch-delivery-harness` may run as nested execution steps; their provider receipts become evidence in the parent design run.
+
+The harness never redefines those skills' domain rules.
+
+## Best Practices
+
+**Only execute the next transition allowed by the run state.**
+
+Run writes use revision-based compare-and-swap under a short-lived file lock. A stale snapshot must fail with a conflict instead of overwriting newer run state. Every successful run revision is also appended to a hash-chained journal so the materialized snapshot can be verified, replayed, recovered, and audited historically. Stable entity audit uses IDs rather than array positions for evidence, artifacts, dispatches, decisions, and invalidations. Authority impact analysis is cross-run and read-only: it finds runs/entities bound to an exact authority version before any migration is allowed.
+
+A successful tool call is evidence for one step, not permission to skip later gates.
+
+## Dispatch execution loop
+
+When the next action is a specialist skill/tool, do not invoke it directly from conversational memory.
+
+1. Run `next-action` to inspect the computed transition.
+2. Run `dispatch` to issue an idempotent dispatch packet with exact scope, authority versions, valid upstream evidence/artifacts, handler, expected evidence stage, and stop conditions.
+3. In multi-worker environments, claim the dispatch with `claim-dispatch --worker-id ...` before executing it. Claims use a bounded lease (default 900 seconds); a second worker cannot claim an unexpired lease.
+4. For long-running work, renew ownership with `heartbeat-dispatch` before the lease expires. If the worker disappears, another worker may reclaim the same dispatch after expiry; the reclaim is recorded in the release ledger.
+5. Execute exactly the named handler against that packet.
+6. Return the result through `complete-dispatch --dispatch-id ... --worker-id ... --evidence-json ...` when claimed. An expired worker lease cannot complete the dispatch.
+7. Only then inspect the next action.
+
+A wrong/stale dispatch ID or wrong evidence stage is rejected. While an active dispatch exists, direct `resume` cannot bypass it. Claimed work can only be completed by the owning worker; use `release-dispatch` with a reason before reassignment.
+
+See [references/dispatch-contract.md](references/dispatch-contract.md).
+
+## Runtime entry
+
+Use `ensure-run` as the default entry for “continue/resume/next page” and for new multi-step work when a bounded product/scope/profile identity is known. It atomically reuses one unique active run or creates one when none exists. Never create a second run merely because the caller lost the previous `run_id`. See [references/run-discovery.md](references/run-discovery.md).
+
+Choose a built-in SOP profile before starting a multi-step run when the task class matches one. The catalog includes `product-to-ui`, `existing-product-next-page`, `page-family-batch`, `design-correction`, `stitch-high-fidelity-delivery`, and `design-to-implementation`. See [references/profiles.md](references/profiles.md).
+
+Use the bundled pure-stdlib runtime for multi-step execution:
+
+```bash
+python skills/ui-design-harness/scripts/design_harness.py status --store <project>/.design-harness --run-id <run-id>
+```
+
+Before a new run, resolve the target project's run ledger by product/version/surface/scope/profile. Existing unique active runs are resumed rather than duplicated; ambiguous active matches block. Explicit authority drift also blocks rather than silently reusing stale contracts. Start new runs with `--profile <id>` when a profile applies. Full commands and payloads are in [references/cli.md](references/cli.md).
+
+## How to use this skill
+
+1. **Start or resume.** Use the runtime `status`/ledger before creating a new run for the requested scope.
+2. **Reconcile authority.** Bind the run to versioned feature, navigation, baseline, and task contracts.
+3. **Plan the next transition.** Use the persisted stage plan and the state machine in [references/state-machine.md](references/state-machine.md). Do not re-enter ui-design-spec routing for every step. If its handler is dispatched for baseline/task work, require only the named stage result.
+4. **Execute one specialist step.** Record its input contract and returned artifact/evidence.
+5. **Validate the gate.** Use deterministic checks where possible and `ui-design-review` for cross-artifact review.
+6. **Pause for required human decisions.** Never infer approval from “looks good”, tool success, or an old message.
+7. **Promote or correct.** Approval advances maturity; scoped feedback creates a correction path and invalidates only dependent downstream evidence.
+8. **Archive only verified final state.** Preserve lineage from source contracts through final assets and receipts.
+
+Use [references/run-discovery.md](references/run-discovery.md) for run resolution, [references/run-contract.md](references/run-contract.md) for persistent state, [references/journal-replay.md](references/journal-replay.md) for journal integrity/recovery, [references/audit-time-travel.md](references/audit-time-travel.md) for revision-level history, [references/entity-provenance.md](references/entity-provenance.md) for stable-ID provenance, [references/authority-impact.md](references/authority-impact.md) for cross-run dependency analysis, [references/evidence-contract.md](references/evidence-contract.md) for receipts, [references/dispatch-contract.md](references/dispatch-contract.md) for specialist handoffs, [references/profiles.md](references/profiles.md) for SOP selection, [references/batch-runs.md](references/batch-runs.md) for parent/child page-family orchestration, and [references/cli.md](references/cli.md) for executable commands.
+
+## Hard gates
+
+- No visual execution before required behavior/navigation decisions are either confirmed or explicitly marked as non-blocking assumptions.
+- No specialist execution may bypass an outstanding dispatch receipt; dispatch-bound evidence must return through `complete-dispatch`.
+- Expired claims are reclaimable, but an expired owner may not submit evidence until it reclaims the dispatch.
+- A `RunConflictError` means another writer committed first. Reload the run, inspect `next-action`, and retry the business operation from fresh state; never force-write the stale snapshot.
+- Run lock timeout is not evidence that the business operation failed. Do not delete an unexpired lock or overwrite the ledger.
+- A journal integrity failure blocks replay/recovery. Do not truncate or rewrite past events to make verification pass.
+- If the journal is ahead of the materialized snapshot, recover the snapshot before any further workflow mutation.
+- Historical audit is read-only. `snapshot-at`, `diff-revisions`, `timeline`, and `trace-path` must not mutate the current run or journal.
+- Time travel does not authorize rollback. Restoring old business state must be a new explicit correction/decision, never an overwrite of current history.
+- Prefer stable entity IDs over array-index JSON Pointers for evidence/artifact/dispatch/decision/invalidation audit.
+- Provenance relationships describe recorded references; they do not imply product approval or authority.
+- Authority impact/planning never mutates runs. `complete=false` means at least one run could not be verified, so the result is not exhaustive.
+- A generated authority-change plan remains `applied=false`; execute changes only through a separate explicit correction/migration workflow.
+- No candidate promotion while `ui-design-review` has blocking `FAIL` or `NEEDS DECISION` findings.
+- No user-approval state without explicit approval for the named scope.
+- No implementation/delivery verification claim from design-render evidence alone.
+- Unknown write/tool outcome enters `RECONCILING`; do not blindly retry.
+- A change to an authoritative upstream contract invalidates all dependent downstream evidence.
+- Parallel page work must pin the same shared baseline version when continuity is required.
+- `page-family-batch` parents own only the shared baseline and aggregate decisions; page-level task/continuity/render/guard stages belong to child runs.
+
+## Correction behavior
+
+For feedback such as “only fix the sidebar”:
+1. record a scoped feedback patch through `ui-design-continuity`;
+2. compute affected artifacts;
+3. preserve unaffected approved stages;
+4. invalidate dependent candidates/guard receipts only;
+5. regenerate the minimum scope;
+6. re-run affected gates;
+7. return to the prior promotion path.
+
+Do not restart the whole design program.
+
+## Stop conditions
+
+Stop and report current run state when:
+- an authority conflict requires a product decision;
+- explicit user approval is required;
+- provider outcome is unknown and reconciliation is incomplete;
+- required evidence/tooling is unavailable;
+- a blocking guard finding remains;
+- the requested action would skip a stage gate.
+
+Return: `run_id`, current state, completed gates, blocked/invalidated gates, next allowed action, and evidence required. When the runtime is available, derive these fields from the persisted ledger rather than reconstructing them from conversation memory.
+
+## Output contract
+
+For every harness turn, report:
+- run identity and scope;
+- current state;
+- authoritative contract versions;
+- newly consumed evidence;
+- transition executed or refused;
+- invalidated downstream artifacts, if any;
+- next allowed action;
+- whether human input is required.
+
+## Keywords
+
+design harness, design SOP, resumable design workflow, design run, stage gate, evidence, approval, reconcile, correction, design orchestration, 设计编排, 设计流水线, 设计状态机, 设计闭环

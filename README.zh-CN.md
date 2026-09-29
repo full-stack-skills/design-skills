@@ -24,7 +24,7 @@
 
 **设计工具技能** 是一组 AI 编码智能体技能，属于 [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) 生态，由 [PartMe.AI](https://github.com/partme-ai) 维护。
 
-本包当前注册 **11 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
+本包当前注册 **15 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
 
 ## 📦 安装
 
@@ -38,7 +38,7 @@ npx skills add full-stack-skills/design-skills
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 技能列表 (11)
+## 🎯 技能列表 (15)
 
 | 技能 | 描述 |
 |------|------|
@@ -47,12 +47,16 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `brand-guidelines` | Applies Anthropic's official brand colors and typography to any sort of artifact that may benefit from having Anthrop... |
 | `canvas-design` | Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the us... |
 | `cross-platform-mvp-ui-alignment` | 对齐多平台 MVP 规格、产品状态、设计语言，并生成相互匹配的 Phone/Tablet UI 资产。 |
-| `feature-design` | 将薄需求转化为可观察的功能行为契约，覆盖动作、状态、权限、证据与验收。 |
-| `navigation-design` | 定义分层导航、路由、激活态、上下文传递、深链与返回契约，防止导航层级漂移。 |
-| `ui-continuity` | 在已确认界面基线上继续设计，通过固定区、变更预算、局部反馈与差异检查保持连续性。 |
-| `product-design` | 编排跨功能、导航、文档、连续设计、视觉执行、评审与验证的产品设计流程，避免重复实现专业技能。 |
-| `design-guard` | 审查跨规格、导航、任务、提示词与设计资产的一致性，区分机械检查与判断检查，并在证据或权威未解决时阻止提升。 |
-| `design-harness` | 以可恢复、证据驱动的运行状态执行设计类 SOP，编排专业技能、工具、审批、纠偏、对账与提升门禁。 |
+| `ui-design-feature` | 将薄需求转化为可观察的功能行为契约，覆盖动作、状态、权限、证据与验收。 |
+| `ui-design-nav` | 定义分层导航、路由、激活态、上下文传递、深链与返回契约，防止导航层级漂移。 |
+| `ui-design-continuity` | 在已确认界面基线上继续设计，通过固定区、变更预算、局部反馈与差异检查保持连续性。 |
+| `ui-design-spec` | 统一入口：spec 模式交付完整功能设计包（内置 Agent Browser / Evently 范例）；执行模式组织后续设计，由专业技能和 Harness 承接。 |
+| `ui-design-review` | 审查跨规格、导航、任务、提示词与设计资产的一致性，区分机械检查与判断检查，并在证据或权威未解决时阻止提升。 |
+| `ui-design-harness` | 以可恢复、证据驱动的运行状态执行设计类 SOP，编排专业技能、工具、审批、纠偏、对账与提升门禁。 |
+| `ui-design-theme` | 应用可复用的产物主题。 |
+| `remotion` | 使用 Remotion 制作程序化视频。 |
+| `ui-design-visual` | 制作高保真 HTML 设计原型。 |
+| `better-icons` | 查找并使用图标。 |
 
 ## 🤖 支持的智能体
 
