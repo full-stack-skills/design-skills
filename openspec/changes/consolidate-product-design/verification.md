@@ -58,3 +58,5 @@
 新增 scripts/check_distribution.py 与 CI 检查；修复前检查失败，修复后暂存清单为 15 个正式入口。通过 git checkout-index 导出临时干净副本，分发检查和 lint 通过，Harness 128 项、规格 42 项测试通过。使用本机已有 Skills CLI 1.7.0 执行 add <clean-copy> --list，实际返回 Found 15 skills，包含八个 ui-design-*，不包含 OpenSpec 技能。只列出，没有执行安装。
 
 这次证据来自 Git 待分发文件，不借用主工作区被忽略的资源；未执行真实视觉生产或跨模型评测。
+
+分发修复已提交为 871932a6ef8cb1e2a9e3db0c5ce07d02d85bba49 并推送 origin/main，git ls-remote 核对一致。检查时远端 CI 仍在排队，不视为通过。
