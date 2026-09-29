@@ -1,0 +1,78 @@
+/* 中等操作按钮：唯一尺寸来源。页面只决定颜色、宽度与排列，不再改变按钮密度。
+   导航列表、内容卡片、遮罩和 switch 不是操作按钮，保留各自结构。 */
+:root {
+  --button-height: 40px;
+  --button-font-size: 14px;
+  --button-line-height: 20px;
+  --button-padding: 14px;
+  --button-radius: 10px;
+  --button-gap: 8px;
+}
+#app button:is(.solid-button, .outline-button, .soft-button, .text-button,
+  .mini-button, .chip, .composer-mini, .sidebar-action, .sidebar-search,
+  .phone-prompt, .space-switch, .z-back),
+#app :is(.segment, .import-tabs, .suggestions) > button {
+  box-sizing: border-box;
+  height: var(--button-height);
+  min-height: var(--button-height);
+  max-height: var(--button-height);
+  padding: 0 var(--button-padding);
+  border-radius: var(--button-radius);
+  font-size: var(--button-font-size);
+  line-height: var(--button-line-height);
+  font-weight: 600;
+  gap: var(--button-gap);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+#app button:is(.solid-button, .outline-button, .soft-button, .text-button,
+  .mini-button, .chip, .composer-mini),
+#app :is(.segment, .import-tabs, .suggestions) > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#app button:is(.icon-button, .composer-send, .foot-icon),
+#app .composer-attachment button {
+  box-sizing: border-box;
+  width: var(--button-height);
+  min-width: var(--button-height);
+  max-width: var(--button-height);
+  height: var(--button-height);
+  min-height: var(--button-height);
+  max-height: var(--button-height);
+  padding: 0;
+  border-radius: var(--button-radius);
+  font-size: var(--button-font-size);
+  line-height: var(--button-line-height);
+  flex: 0 0 var(--button-height);
+}
+#app button:is(.solid-button, .outline-button, .soft-button, .text-button,
+  .mini-button, .chip, .composer-mini, .sidebar-action, .sidebar-search,
+  .phone-prompt, .space-switch, .z-back) .icon,
+#app :is(.segment, .import-tabs, .suggestions) > button .icon {
+  width: 16px;
+  height: 16px;
+}
+#app button:is(.icon-button, .composer-send, .foot-icon) .icon,
+#app .composer-attachment button .icon { width: 20px; height: 20px; }
+/* 同行选择器跟随按钮高度；文本长度决定按钮宽度，不强行等宽。 */
+#app .z-directory-tools .z-select {
+  height: var(--button-height);
+  font-size: var(--button-font-size);
+  border-radius: var(--button-radius);
+}
+.z-directory-tools { flex-wrap: wrap; }
+.import-directory-actions { margin-left: auto; flex-wrap: wrap; }
+.mw-model-heading { flex-wrap: wrap; }
+.mw-model-heading > div { margin-left: auto; flex-wrap: wrap; }
+.mw-editor-footer { flex-wrap: wrap; }
+.mw-editor-footer > div { margin-left: auto; }
+.mw-key button { top: 50%; transform: translateY(-50%); right: 2px; }
+.mw-key .field { padding-right: 66px; }
+/* 收起的 Pad 导航轨只显示图标，保持同一个中等图标按钮尺寸。 */
+@media (min-width:700px) and (max-width:1100px) {
+  #app .sidebar:not(.open) :is(.sidebar-action, .sidebar-search) {
+    width: var(--button-height); padding: 0; justify-content: center;
+  }
+}

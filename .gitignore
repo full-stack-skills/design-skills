@@ -173,3 +173,6 @@ demos/**/*.mp4
 !skills/ui-design-visual/package-lock.json
 !skills/ui-design-visual/test-prompts.json
 !skills/ui-design-visual/assets/personal-asset-index.example.json
+
+# Standalone preview capability-alignment baseline
+!skills/ui-design-preview/assets/device-preview/review/alignment-baseline/baseline.json

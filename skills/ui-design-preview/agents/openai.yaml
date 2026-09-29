@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Preview"
+  short_description: "同步切换页面与主题，以真实视口预览和对比多设备界面"
+  default_prompt: "使用 $ui-design-preview 为当前界面建立可独立运行的多设备同步预览，并验证对照结果。"
