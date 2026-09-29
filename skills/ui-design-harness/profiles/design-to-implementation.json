@@ -1,0 +1,42 @@
+{
+  "id": "design-to-implementation",
+  "version": 2,
+  "title": "Design to Implementation",
+  "description": "Validate an approved design baseline, prepare implementation handoff, guard the handoff, approve it, then require delivery verification.",
+  "entry_mode": "start",
+  "required_authorities": [
+    "feature_contract",
+    "navigation_contract",
+    "baseline",
+    "approved_design"
+  ],
+  "parallel_policy": "serial",
+  "child_scope": null,
+  "final_gate": "DELIVERY_VERIFIED",
+  "stages": [
+    {
+      "evidence_stage": "baseline",
+      "target_state": "BASELINE_BOUND",
+      "handler": "ui-design-spec",
+      "required": true
+    },
+    {
+      "evidence_stage": "task",
+      "target_state": "TASK_READY",
+      "handler": "ui-design-spec",
+      "required": true
+    },
+    {
+      "evidence_stage": "guard",
+      "target_state": "GUARD_REVIEWED",
+      "handler": "ui-design-review",
+      "required": true
+    },
+    {
+      "evidence_stage": "approval-ready",
+      "target_state": "AWAITING_USER_APPROVAL",
+      "handler": "ui-design-harness",
+      "required": true
+    }
+  ]
+}

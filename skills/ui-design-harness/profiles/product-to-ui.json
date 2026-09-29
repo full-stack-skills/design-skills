@@ -1,0 +1,61 @@
+{
+  "id": "product-to-ui",
+  "version": 3,
+  "title": "Product to UI",
+  "description": "From product intent to an approved UI candidate with behavior, navigation, task, continuity, rendering, and guard gates.",
+  "entry_mode": "start",
+  "required_authorities": [],
+  "parallel_policy": "serial",
+  "child_scope": null,
+  "final_gate": "APPROVED",
+  "stages": [
+    {
+      "evidence_stage": "baseline",
+      "target_state": "BASELINE_BOUND",
+      "handler": "ui-design-spec",
+      "required": true
+    },
+    {
+      "evidence_stage": "behavior",
+      "target_state": "BEHAVIOR_READY",
+      "handler": "ui-design-feature",
+      "required": true
+    },
+    {
+      "evidence_stage": "navigation",
+      "target_state": "NAVIGATION_READY",
+      "handler": "ui-design-nav",
+      "required": true
+    },
+    {
+      "evidence_stage": "task",
+      "target_state": "TASK_READY",
+      "handler": "ui-design-spec",
+      "required": true
+    },
+    {
+      "evidence_stage": "continuity",
+      "target_state": "CONTINUITY_READY",
+      "handler": "ui-design-continuity",
+      "required": true
+    },
+    {
+      "evidence_stage": "candidate",
+      "target_state": "CANDIDATE_READY",
+      "handler": "renderer",
+      "required": true
+    },
+    {
+      "evidence_stage": "guard",
+      "target_state": "GUARD_REVIEWED",
+      "handler": "ui-design-review",
+      "required": true
+    },
+    {
+      "evidence_stage": "approval-ready",
+      "target_state": "AWAITING_USER_APPROVAL",
+      "handler": "ui-design-harness",
+      "required": true
+    }
+  ]
+}

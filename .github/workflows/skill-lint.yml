@@ -14,6 +14,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 scripts/lint_skills.py
+      - name: Check published skill inventory and required resources
+        run: python3 scripts/check_distribution.py
       - name: Check functional design fixtures and source snapshots
         run: python3 -m unittest discover -s skills/ui-design-spec/scripts -p 'test_*.py'
       - name: Check complete functional design example

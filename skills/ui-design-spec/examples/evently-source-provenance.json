@@ -1,0 +1,48 @@
+{
+  "captured_on": "2026-09-29",
+  "source_kind": "local_working_tree",
+  "excerpts": [
+    {
+      "path": "docs/specs/2026-09-04-nianhuileme-tenant-console-p01-p15-functional-spec.md",
+      "first_line": 90,
+      "last_line": 101,
+      "source_sha256": "a2d1d23fb2ba90076cee587975bd43ea97e4b78e4be47845c80747adac2402de",
+      "excerpt_sha256": "ce463745aab3d8efd0524cada614297909658abe2d739109f055a1dbe8c3c1c1"
+    },
+    {
+      "path": "docs/specs/interfaces/tenant-console/REGISTRY.md",
+      "first_line": 235,
+      "last_line": 264,
+      "source_sha256": "07814a3b5a0e1d15edd318d5623e700527bd051ea964956e25d23d22ce140dff",
+      "excerpt_sha256": "fcfbd3935d9b59bd1f3c84117582155adafaf3d652811bddc12cc29e133e2445"
+    },
+    {
+      "path": "docs/specs/interfaces/tenant-console/NAVIGATION.md",
+      "first_line": 10,
+      "last_line": 105,
+      "source_sha256": "d68894a6ec3e6ed0b0cb80123b91ef8026ec7dd2cc10280c6413a16113a0a303",
+      "excerpt_sha256": "9239308463bfce25411ac29a481d181af0c352dcff40732e0d8026dbea6f8db7"
+    },
+    {
+      "path": "docs/superpowers/tasks/interface-design/tenant-console/P02/P02-A11.md",
+      "first_line": 8,
+      "last_line": 12,
+      "source_sha256": "7b6e395ee6c067dd64ca4525518ab259546158c20e4c26bb6ccd450bfc914654",
+      "excerpt_sha256": "8e8a8a7a1a320f1e500d0223d6e64730d614062d01517fbb646a2222c1bb8b98"
+    },
+    {
+      "path": "docs/superpowers/tasks/interface-design/tenant-console/P02/P02-A11.md",
+      "first_line": 65,
+      "last_line": 69,
+      "source_sha256": "7b6e395ee6c067dd64ca4525518ab259546158c20e4c26bb6ccd450bfc914654",
+      "excerpt_sha256": "e4589e9a0051084b23d4d543f1782be2e7b4f93c022ec997b49156bb7f814b85"
+    },
+    {
+      "path": "docs/superpowers/tasks/interface-design/tenant-console/P02/P02-A11.md",
+      "first_line": 23,
+      "last_line": 31,
+      "source_sha256": "7b6e395ee6c067dd64ca4525518ab259546158c20e4c26bb6ccd450bfc914654",
+      "excerpt_sha256": "d45fc8d9c1fa565ed2c07897a62e4048ec4ab85fa61fd92420465c12da81058d"
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "status": "ready",
+  "scope": {
+    "product": "Agent Buddy 安装计划教学切片",
+    "users": "本机安装操作者",
+    "objects": "InstallPlan、来源版本、目标文件摘要",
+    "in_scope": "F07 计划预览和过期重算",
+    "out_of_scope": "来源选择、审批执行、写盘、生效和恢复；完整产品导航争议",
+    "spec_source": "原 Agent Buddy OpenSpec，工作区证据见 source-snapshots/provenance.json；本包只读教学"
+  },
+  "sources": [
+    {
+      "id": "SRC1",
+      "location": "source-snapshots/product-excerpts.md",
+      "version": "2026-09-29 工作区摘录",
+      "evidence_kind": "design",
+      "conclusion": "F07 与 B06 描述安装预览和过期返回"
+    },
+    {
+      "id": "SRC2",
+      "location": "source-snapshots/tasks.md",
+      "version": "2026-09-29 原任务只读摘录",
+      "evidence_kind": "spec",
+      "conclusion": "2.2 固定计划，2.6 接入真实 Web 状态"
+    }
+  ],
+  "features": [
+    {
+      "id": "F07",
+      "goal": "理解将写入的版本、目标、差异与风险",
+      "preconditions": "来源/目标已选择，预览权限有效",
+      "inputs": "来源版本、目标路径、范围与原文件摘要",
+      "outputs": "计划 ID、差异、备份引用和权限摘要",
+      "permission": "只读预览不授权安装写入",
+      "exceptions": "来源/文件/目标变化使计划过期并重算",
+      "acceptance": "变更夹具后旧计划失效，预览没有安装写盘副作用",
+      "priority": "P0",
+      "maturity": "目标设计，未运行验证",
+      "source_ids": [
+        "SRC1",
+        "SRC2"
+      ]
+    }
+  ],
+  "surfaces": [
+    {
+      "feature_ids": [
+        "F07"
+      ],
+      "preconditions": "来源与目标已选择；允许预览",
+      "context": "当前来源、目标和范围，不跨目标沿用计划",
+      "user_question": "计划是否有效，准备写入哪些内容？",
+      "required_information": "计划 ID、版本、目标、差异、风险、备份引用",
+      "secondary_actions": "返回选择并保留草稿",
+      "fields_and_validation": "来源/目标/范围必需；摘要由系统生成且只读；变更后旧计划失效",
+      "permission": "检查读取目标权限；预览不具有写盘权限",
+      "return_behavior": "回来源/目标选择，保留草稿，改变输入后重算",
+      "accessibility": "差异可键盘滚动，禁用继续时说明原因，关闭异常后恢复焦点",
+      "data_contract": "目标 InstallPlan 用例；API 名称尚未在本样例核定",
+      "visual_dependency": "沿用既有 B06 父页，双端信息结构一致；不决定全局导航争议",
+      "acceptance": "显示真实计划内容；过期时禁用继续，重算后替换计划标识",
+      "id": "B06",
+      "kind": "page",
+      "parent_id": null,
+      "entry": "原来源/目标流程进入安装向导",
+      "layout": "步骤栏、输入摘要和计划工作区",
+      "primary_action": "进入计划预览",
+      "success": "B06-03",
+      "failure": "输入缺失时保留草稿并返回选择"
+    },
+    {
+      "feature_ids": [
+        "F07"
+      ],
+      "preconditions": "来源与目标已选择；允许预览",
+      "context": "当前来源、目标和范围，不跨目标沿用计划",
+      "user_question": "计划是否有效，准备写入哪些内容？",
+      "required_information": "计划 ID、版本、目标、差异、风险、备份引用",
+      "secondary_actions": "返回选择并保留草稿",
+      "fields_and_validation": "来源/目标/范围必需；摘要由系统生成且只读；变更后旧计划失效",
+      "permission": "检查读取目标权限；预览不具有写盘权限",
+      "return_behavior": "回来源/目标选择，保留草稿，改变输入后重算",
+      "accessibility": "差异可键盘滚动，禁用继续时说明原因，关闭异常后恢复焦点",
+      "data_contract": "目标 InstallPlan 用例；API 名称尚未在本样例核定",
+      "visual_dependency": "沿用既有 B06 父页，双端信息结构一致；不决定全局导航争议",
+      "acceptance": "显示真实计划内容；过期时禁用继续，重算后替换计划标识",
+      "id": "B06-03",
+      "kind": "subview",
+      "parent_id": "B06",
+      "entry": "输入通过后生成冻结计划",
+      "layout": "页头计划标识；左侧文件差异；右侧风险/权限/备份；底部继续/返回",
+      "primary_action": "校验并审阅计划",
+      "success": "有效预览交给原审批流程；此样例不执行审批",
+      "failure": "B06-E01 展示具体变化对象"
+    },
+    {
+      "feature_ids": [
+        "F07"
+      ],
+      "preconditions": "来源与目标已选择；允许预览",
+      "context": "当前来源、目标和范围，不跨目标沿用计划",
+      "user_question": "计划是否有效，准备写入哪些内容？",
+      "required_information": "计划 ID、版本、目标、差异、风险、备份引用",
+      "secondary_actions": "返回选择并保留草稿",
+      "fields_and_validation": "来源/目标/范围必需；摘要由系统生成且只读；变更后旧计划失效",
+      "permission": "检查读取目标权限；预览不具有写盘权限",
+      "return_behavior": "回来源/目标选择，保留草稿，改变输入后重算",
+      "accessibility": "差异可键盘滚动，禁用继续时说明原因，关闭异常后恢复焦点",
+      "data_contract": "目标 InstallPlan 用例；API 名称尚未在本样例核定",
+      "visual_dependency": "沿用既有 B06 父页，双端信息结构一致；不决定全局导航争议",
+      "acceptance": "显示真实计划内容；过期时禁用继续，重算后替换计划标识",
+      "id": "B06-E01",
+      "kind": "error",
+      "parent_id": "B06",
+      "entry": "检测来源/文件/目标摘要变化",
+      "layout": "保留差异，顶部失效原因，突出重新预览，禁用继续",
+      "primary_action": "重新预览",
+      "success": "B06-03 展示新计划与摘要",
+      "failure": "保留失效标识，可返回选择"
+    }
+  ],
+  "journeys": [
+    {
+      "id": "J-F07",
+      "feature_ids": [
+        "F07"
+      ],
+      "goal": "得到可审阅有效计划并处理过期",
+      "preconditions": "来源目标完整，预览权限有效",
+      "outcome": "有效预览交给既有审批流程，不执行写盘",
+      "steps": [
+        {
+          "surface_id": "B06",
+          "action": "进入计划预览",
+          "transition": "输入已选择→计划生成",
+          "permission": "检查读取目标权限；预览不具有写盘权限",
+          "success": "B06-03",
+          "failure": "输入缺失时保留草稿并返回选择"
+        },
+        {
+          "surface_id": "B06-03",
+          "action": "校验并审阅计划",
+          "transition": "预览→有效或过期",
+          "permission": "检查读取目标权限；预览不具有写盘权限",
+          "success": "有效预览交给原审批流程；此样例不执行审批",
+          "failure": "B06-E01 展示具体变化对象"
+        },
+        {
+          "surface_id": "B06-E01",
+          "action": "重新预览",
+          "transition": "旧计划失效→重算",
+          "permission": "检查读取目标权限；预览不具有写盘权限",
+          "success": "B06-03 展示新计划与摘要",
+          "failure": "保留失效标识，可返回选择"
+        }
+      ],
+      "branches": {
+        "failure": "保留草稿和失效原因，禁止继续",
+        "denial": "无读取权限不展示目标内容",
+        "cancel": "退出预览保留草稿，不产生安装副作用",
+        "offline": "需远端刷新时标不可校验，不冒充最新",
+        "conflict": "摘要变化使旧计划失效",
+        "interruption": "重开重新核对摘要",
+        "recovery": "重算新计划，不复用旧审批"
+      }
+    }
+  ],
+  "task_source": "source-snapshots/tasks.md",
+  "tasks": [
+    {
+      "id": "T2.2",
+      "feature_ids": [
+        "F07"
+      ],
+      "surface_ids": [
+        "B06",
+        "B06-03",
+        "B06-E01"
+      ],
+      "depends_on": [],
+      "phase": "阶段 2 的 F07 子范围，原项目外部依赖仍有效",
+      "owner_role": "Rust 应用服务角色",
+      "inputs": "来源/目标/文件夹具与共享计划合同",
+      "deliverable": "摘要绑定计划和过期校验",
+      "acceptance": "无效旧计划不能继续，新预览绑定新摘要",
+      "verification": "隔离夹具改变来源/目标/文件，验证旧计划失效",
+      "source_marker": "- [ ] 2.2 "
+    },
+    {
+      "id": "T2.6",
+      "feature_ids": [
+        "F07"
+      ],
+      "surface_ids": [
+        "B06",
+        "B06-03",
+        "B06-E01"
+      ],
+      "depends_on": [
+        "T2.2"
+      ],
+      "phase": "阶段 2 的 F07 子范围，原项目外部依赖仍有效",
+      "owner_role": "桌面界面角色",
+      "inputs": "来源/目标/文件夹具与共享计划合同",
+      "deliverable": "真实预览、失效与重新预览界面",
+      "acceptance": "无效旧计划不能继续，新预览绑定新摘要",
+      "verification": "交互测试核验返回、重算及无安装写入",
+      "source_marker": "- [ ] 2.6 "
+    }
+  ],
+  "issues": [],
+  "reviews": [
+    {
+      "area": "source_authority",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | 原摘录与教学细化有明确分界"
+    },
+    {
+      "area": "functional_closure",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | F07 对应旅程、页面和任务"
+    },
+    {
+      "area": "layout_and_navigation",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | 父页和内容分区明确，保留返回上下文"
+    },
+    {
+      "area": "interaction_and_recovery",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | 过期处理、拒绝、离线及取消已展开"
+    },
+    {
+      "area": "task_plan",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | 2.2/2.6 唯一定位，原项目外部依赖保留"
+    },
+    {
+      "area": "cross_surface_consistency",
+      "verdict": "pass",
+      "evidence": "06-review-report.md | JSON 与文档 ID 和行为对齐"
+    }
+  ]
+}

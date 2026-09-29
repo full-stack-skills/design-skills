@@ -32,7 +32,7 @@ Do not use merely because a specification contains multiple documents, or for a 
 - `ui-design-continuity` owns initial/inherit/correction preflight constraints and scoped feedback; post-render comparison belongs to review.
 - `ui-design-review` owns cross-artifact consistency review.
 - Stitch/Pencil/`ui-design-visual` and other renderers own visual execution.
-- Provider-specific harnesses such as `stitch-delivery-harness` may run as nested execution steps; their provider receipts become evidence in the parent design run.
+- Provider-specific harnesses such as `stitch-design-harness` may run as nested execution steps; their provider receipts become evidence in the parent design run.
 
 The harness never redefines those skills' domain rules.
 

@@ -38,7 +38,7 @@ python skills/ui-design-harness/scripts/design_harness.py start \
 | `existing-product-next-page` | IA/feature/navigation/shell are already locked and the next page must continue the family | Requires locked upstream authorities and skips reopening behavior/navigation stages |
 | `page-family-batch` | Several pages share the same approved shell/design language | Parent validates one shared baseline, then spawns `existing-product-next-page` child runs; page-level stages stay in the children |
 | `design-correction` | Existing run receives scoped feedback | Correction-only entry; use the runtime `correct` path rather than starting a new run |
-| `stitch-high-fidelity-delivery` | A contract-bound page is delivered through Stitch | Routes candidate production to `stitch-delivery-harness`, then guard + approval |
+| `stitch-high-fidelity-delivery` | A contract-bound page is delivered through Stitch | Routes candidate production to `stitch-design-harness`, then guard + approval |
 | `design-to-implementation` | Approved design must become a guarded implementation handoff and then be runtime-verified | Requires approved design authority and keeps delivery verification as the final gate |
 
 ## Profile schema
@@ -122,3 +122,7 @@ For `page-family-batch`, the parent stage plan contains only `baseline`. After i
 This prevents the parent from duplicating Task, Continuity, Candidate, Guard, and Approval work already owned by children.
 
 See [batch-runs.md](batch-runs.md).
+
+## Stitch handler rename
+
+`stitch-high-fidelity-delivery` version 4 uses `stitch-design-harness`. The profile ID and stage semantics remain unchanged. Persisted version 3 stage plans keep their original handler value; resolve that historical name using the explicit alias in the dispatch contract, without rewriting run history.

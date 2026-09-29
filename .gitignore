@@ -156,3 +156,20 @@ demos/_verify.mjs
 _style-research/
 **/design-demos/
 demos/**/*.mp4
+
+# Versioned Stitch design handler profile
+!skills/ui-design-harness/profiles/stitch-high-fidelity-delivery.json
+
+# Repository-local workflow skills are not part of the published skill package.
+/.agents/skills/
+/.kimi-code/skills/
+/.zcode/skills/
+
+# Required versioned skill resources (keep general local JSON ignored).
+!skills/ui-design-harness/profiles/*.json
+!skills/ui-design-spec/examples/**/*.json
+!skills/ui-design-spec/examples/*.json
+!skills/ui-design-visual/package.json
+!skills/ui-design-visual/package-lock.json
+!skills/ui-design-visual/test-prompts.json
+!skills/ui-design-visual/assets/personal-asset-index.example.json

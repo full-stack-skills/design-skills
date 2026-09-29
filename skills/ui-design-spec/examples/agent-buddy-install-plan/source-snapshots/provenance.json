@@ -1,0 +1,23 @@
+[
+  {
+    "repository": "agent-buddy",
+    "path": "docs/PRODUCT_FUNCTION_DESIGN_PLAN.md",
+    "sha256": "91510dfd99468ef9e472495e0f7f2b6c7e2857eabc3996f9749e13e61f48a036",
+    "snapshot_kind": "working-tree",
+    "captured": "2026-09-29"
+  },
+  {
+    "repository": "agent-buddy",
+    "path": "docs/PRODUCT_SURFACE_REGISTRY.md",
+    "sha256": "bd790cc296c2729287ea2ccc393958285e83a234b2df4f901d9050adaab5d4fe",
+    "snapshot_kind": "working-tree",
+    "captured": "2026-09-29"
+  },
+  {
+    "repository": "agent-buddy",
+    "path": "openspec/changes/dual-desktop-shared-agent-foundation/tasks.md",
+    "sha256": "363d6ce2a92723940f7ccfcdb65c1e39fc4003a9be6aa1c396272f580b398892",
+    "snapshot_kind": "working-tree",
+    "captured": "2026-09-29"
+  }
+]

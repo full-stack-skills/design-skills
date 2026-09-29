@@ -81,3 +81,10 @@ New full-product planning SHALL include a derived task coverage index referencin
 #### Scenario: 功能未被任务承接
 - **WHEN** 声明的功能或 Surface 没有对应任务
 - **THEN** 校验报告缺口，不提升完成状态
+
+### Requirement: 完整且受限的 Git 分发包
+The tracked distribution SHALL include all required profile, registry, provenance and visual package resources and SHALL expose only skills registered in the plugin manifest. Repository-local OpenSpec skill installations SHALL remain local and untracked.
+
+#### Scenario: 干净副本安装发现
+- **WHEN** 从 Git 暂存区或提交导出干净副本并执行 skills add --list
+- **THEN** 发现 15 个正式技能且不包含 OpenSpec 开发技能，Harness 与规格测试均通过

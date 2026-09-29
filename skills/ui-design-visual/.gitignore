@@ -156,3 +156,9 @@ demos/_verify.mjs
 _style-research/
 **/design-demos/
 demos/**/*.mp4
+
+# Published runtime metadata and portable examples.
+!/package.json
+!/package-lock.json
+!/test-prompts.json
+!/assets/personal-asset-index.example.json

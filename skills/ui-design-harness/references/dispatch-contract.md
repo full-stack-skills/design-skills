@@ -111,7 +111,9 @@ Use the `handler` literally when it names a registered specialist skill, for exa
 - `ui-design-continuity`
 - `ui-design-review`
 - `ui-design-spec`
-- `stitch-delivery-harness`
+- `stitch-design-harness`
+
+Compatibility name: a persisted packet with handler `stitch-delivery-harness` executes the renamed `stitch-design-harness` skill for the same bounded stage. Preserve the original packet, handler, run/dispatch IDs and evidence stage; do not rewrite history or start another run. This is a specific name alias, not permission to substitute arbitrary handlers.
 
 A generic handler such as `renderer` means the current design task must select the configured renderer without changing upstream product contracts.
 

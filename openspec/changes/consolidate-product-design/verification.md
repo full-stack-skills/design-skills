@@ -50,3 +50,11 @@
 ## 提交前暂存检查
 
 纳入全部新文件后，cached diff 空白检查发现历史范例中的尾部空行和 Evently 原文的 Markdown 双空格换行；保留这些来源内容，不为格式归一化改写原文快照。新增视觉工作法的尾部空行已清理。此前 diff 检查通过仅覆盖当时已跟踪差异，不代表全部未跟踪新文件无空白提示。暂存新增行的本机绝对路径、私钥头和 GitHub token 模式扫描无命中；该扫描不等价于完整秘密审计。
+
+## Git 分发修复验证
+
+原发布存在 12 个开发技能文件（4 个去重名称）和 16 个未跟踪的必要 JSON 资源。修复根目录及视觉技能内的忽略规则，取消 .agents/.kimi-code/.zcode 的开发 skills 跟踪，保留本地文件；原 OpenSpec specs/tasks 不受影响。保留工作区现有 Stitch handler 名称更新。
+
+新增 scripts/check_distribution.py 与 CI 检查；修复前检查失败，修复后暂存清单为 15 个正式入口。通过 git checkout-index 导出临时干净副本，分发检查和 lint 通过，Harness 128 项、规格 42 项测试通过。使用本机已有 Skills CLI 1.7.0 执行 add <clean-copy> --list，实际返回 Found 15 skills，包含八个 ui-design-*，不包含 OpenSpec 技能。只列出，没有执行安装。
+
+这次证据来自 Git 待分发文件，不借用主工作区被忽略的资源；未执行真实视觉生产或跨模型评测。
