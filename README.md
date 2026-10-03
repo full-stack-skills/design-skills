@@ -24,7 +24,7 @@ English | [简体中文](./README.zh-CN.md)
 
 **Design Tools Skills** is a curated collection of Agent Skills for AI coding agents, part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem maintained by [PartMe.AI](https://github.com/partme-ai).
 
-This package currently registers **17 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
+This package currently registers **18 skills**. Each skill is a self-contained `SKILL.md` file that AI agents load on-demand.
 
 ## 📦 Install
 
@@ -38,7 +38,7 @@ Or install specific skills:
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 Skills (17)
+## 🎯 Skills (18)
 
 | Skill | Description |
 |-------|-------------|
@@ -56,6 +56,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `ui-design-theme` | Apply reusable artifact themes. |
 | `remotion` | Create programmatic videos with Remotion. |
 | `ui-design-visual` | Create high-fidelity HTML design prototypes. |
+| [ui-design-use](skills/ui-design-use/SKILL.md) | Route frontend design work to source-managed specialists; plugins distribute pinned snapshots. |
 | [ui-design-to-image](skills/ui-design-to-image/SKILL.md) | Generate scoped UI concept images and frontend raster assets with native imagegen or an explicitly selected image backend. |
 | [ui-design-preview](skills/ui-design-preview/SKILL.md) | Synchronized pages/themes and multi-device preview comparison, with a complete standalone application. |
 | `better-icons` | Find and use icons. |
