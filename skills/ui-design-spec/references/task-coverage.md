@@ -22,3 +22,5 @@ python3 <skill>/scripts/validate_task_coverage.py <package>/task-coverage.json
 ```
 
 独立脚本核验声明范围覆盖、引用、定位和依赖；完整包检查另对照 registry 的 Surface 集合。两者都不证明业务范围完整、文字内容深度、任务依赖的业务合理性或批准。语义审查必须对照功能清单与真实来源确认 features 没有遗漏，并核实任务内容与映射一致。
+
+新完整包还使用 [methodology 合同](methodology-contract.md) 与 --require-methodology：features 集合对齐此索引，每个 design_unit.task_id 引用本索引，Surface 是所属任务覆盖的子集，跨任务父子有原任务依赖。设计单元不复制执行状态，原任务说明仍是执行内容权威。

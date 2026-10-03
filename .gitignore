@@ -167,8 +167,6 @@ demos/**/*.mp4
 
 # Required versioned skill resources (keep general local JSON ignored).
 !skills/ui-design-harness/profiles/*.json
-!skills/ui-design-spec/examples/**/*.json
-!skills/ui-design-spec/examples/*.json
 !skills/ui-design-visual/package.json
 !skills/ui-design-visual/package-lock.json
 !skills/ui-design-visual/test-prompts.json
@@ -176,3 +174,12 @@ demos/**/*.mp4
 
 # Standalone preview capability-alignment baseline
 !skills/ui-design-preview/assets/device-preview/review/alignment-baseline/baseline.json
+
+# Repository-only historical regression fixtures (not distributed skills).
+!evals/fixtures/ui-design-spec/**/*.json
+!evals/fixtures/ui-design-spec/*.json
+
+# Preserve the final proof package as a complete reproducible record.
+/evals/ui-design-spec/proof-run-20261003/
+!evals/ui-design-spec/proof-run-20261003-v2/**/*.json
+!evals/ui-design-spec/proof-run-20261003-v2/results.json

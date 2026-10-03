@@ -50,7 +50,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `ui-design-feature` | 将薄需求转化为可观察的功能行为契约，覆盖动作、状态、权限、证据与验收。 |
 | `ui-design-nav` | 定义分层导航、路由、激活态、上下文传递、深链与返回契约，防止导航层级漂移。 |
 | `ui-design-continuity` | 在已确认界面基线上继续设计，通过固定区、变更预算、局部反馈与差异检查保持连续性。 |
-| `ui-design-spec` | 统一入口：spec 模式交付完整功能设计包（内置 Agent Browser / Evently 范例）；执行模式组织后续设计，由专业技能和 Harness 承接。 |
+| `ui-design-spec` | 统一入口：通用六项设计工作法，覆盖菜单地图、逐页规格、交互面、流程、独立设计任务、生成校验；执行模式由专业技能和 Harness 承接。 |
 | `ui-design-review` | 审查跨规格、导航、任务、提示词与设计资产的一致性，区分机械检查与判断检查，并在证据或权威未解决时阻止提升。 |
 | `ui-design-harness` | 以可恢复、证据驱动的运行状态执行设计类 SOP，编排专业技能、工具、审批、纠偏、对账与提升门禁。 |
 | `ui-design-theme` | 应用可复用的产物主题。 |

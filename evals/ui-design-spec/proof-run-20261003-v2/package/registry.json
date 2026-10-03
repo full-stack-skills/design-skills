@@ -1,0 +1,377 @@
+{
+  "version": "proof-v1",
+  "status": "Draft",
+  "pages": [
+    {
+      "id": "P01",
+      "name": "订单与导出",
+      "scope": "当前组织",
+      "nav": "订单",
+      "phase": "Draft",
+      "purpose": "定位订单并导出明确范围",
+      "entry": "订单菜单",
+      "layout": "筛选工具栏、订单表格、导出范围抽屉",
+      "fields": "订单号、状态、金额、更新时间；导出范围",
+      "validation": "组织与范围一致；权限有效；提交中禁止重复触发",
+      "state": "加载、空列表、只读、执行中、结果未知",
+      "error": "已确认失败保留范围；未知结果先核对请求状态",
+      "result": "下载结果和任务标识",
+      "requirements": "演示合同，不是生产业务实现或批准",
+      "views": [
+        {
+          "id": "P01-01",
+          "name": "订单列表"
+        },
+        {
+          "id": "P01-02",
+          "name": "导出范围"
+        }
+      ],
+      "actions": [
+        {
+          "id": "P01-A01",
+          "name": "打开导出",
+          "precondition": "订单读取权限且列表已加载",
+          "effect": "只打开范围抽屉，不生成文件",
+          "source": "P01-01",
+          "target": "P01-02",
+          "cancel": "P01-01"
+        },
+        {
+          "id": "P01-A02",
+          "name": "提交导出",
+          "precondition": "导出权限、范围有效、无重复提交",
+          "effect": "创建导出任务；确认完成后展示结果",
+          "source": "P01-02",
+          "target": "P01-R01",
+          "cancel": "P01-02"
+        }
+      ]
+    }
+  ],
+  "globals": [],
+  "methodology": {
+    "schema_version": 1,
+    "objects": [
+      {
+        "id": "O01",
+        "name": "Order",
+        "owner": "订单服务",
+        "source": "pages/P01.md"
+      },
+      {
+        "id": "O02",
+        "name": "ExportJob",
+        "owner": "导出服务",
+        "source": "pages/P01.md"
+      }
+    ],
+    "features": [
+      {
+        "id": "F01",
+        "page_ids": [
+          "P01"
+        ],
+        "object_ids": [
+          "O01",
+          "O02"
+        ],
+        "upstream_ids": [],
+        "downstream_ids": [],
+        "source": "FUNCTION-CATALOG.md"
+      }
+    ],
+    "menus": [
+      {
+        "id": "M01",
+        "label": "订单",
+        "parent_id": null,
+        "page_ids": [
+          "P01"
+        ],
+        "default_page_id": "P01",
+        "feature_ids": [
+          "F01"
+        ],
+        "object_ids": [
+          "O01",
+          "O02"
+        ]
+      }
+    ],
+    "page_details": [
+      {
+        "page_id": "P01",
+        "menu_id": "M01",
+        "actors": [
+          "订单分析员"
+        ],
+        "permissions": [
+          "订单读取",
+          "订单导出"
+        ],
+        "feature_ids": [
+          "F01"
+        ],
+        "object_ids": [
+          "O01",
+          "O02"
+        ],
+        "core_question": "找到哪些订单、要导出哪个范围？",
+        "layout_archetype": "过滤列表与范围抽屉",
+        "source": "pages/P01.md"
+      }
+    ],
+    "surface_details": [
+      {
+        "surface_id": "P01-01",
+        "kind": "screen",
+        "parent_surface_id": null,
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-02",
+        "kind": "drawer",
+        "parent_surface_id": "P01-01",
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-A01",
+        "kind": "action",
+        "parent_surface_id": "P01-01",
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-A02",
+        "kind": "action",
+        "parent_surface_id": "P01-02",
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-S01",
+        "kind": "loading",
+        "parent_surface_id": "P01-02",
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-E01",
+        "kind": "error",
+        "parent_surface_id": "P01-02",
+        "source": "SCREEN-REGISTRY.md"
+      },
+      {
+        "surface_id": "P01-R01",
+        "kind": "result",
+        "parent_surface_id": "P01-01",
+        "source": "SCREEN-REGISTRY.md"
+      }
+    ],
+    "transitions": [
+      {
+        "id": "FLOW01",
+        "action_id": "P01-A01",
+        "kind": "local",
+        "source": "P01-01",
+        "success": "P01-02",
+        "failure": "P01-E01",
+        "cancel": "P01-01",
+        "precondition": "订单读取权限且列表已加载",
+        "state_change": "只打开范围抽屉，不生成文件",
+        "recovery": "保留列表筛选，刷新权限后重开",
+        "permission": "订单读取",
+        "source_ref": "USER-FLOWS.md"
+      },
+      {
+        "id": "FLOW02",
+        "action_id": "P01-A02",
+        "kind": "command",
+        "source": "P01-02",
+        "success": "P01-R01",
+        "failure": "P01-E01",
+        "cancel": "P01-02",
+        "precondition": "导出权限、范围有效、无重复提交",
+        "state_change": "创建导出任务；确认完成后展示结果",
+        "recovery": "保留范围；超时进入 P01-S01 先查询请求状态，核实未创建后才能重试",
+        "permission": "订单导出",
+        "source_ref": "USER-FLOWS.md"
+      }
+    ],
+    "design_units": [
+      {
+        "id": "DU01",
+        "task_id": "T01",
+        "surface_ids": [
+          "P01-01"
+        ],
+        "mode": "NEW_SCREEN",
+        "parent_unit_id": null,
+        "baseline_ref": null,
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "订单列表业务区"
+        ],
+        "acceptance": [
+          "显示订单号、状态、金额和更新时间；空列表保留筛选入口；返回保持组织与筛选",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU01-P01-01.png"
+        ],
+        "source": "MASTER-PLAN.md#T01"
+      },
+      {
+        "id": "DU02",
+        "task_id": "T02",
+        "surface_ids": [
+          "P01-02"
+        ],
+        "mode": "OVERLAY_PARENT",
+        "parent_unit_id": "DU01",
+        "baseline_ref": "planned:DU01@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "导出范围业务区"
+        ],
+        "acceptance": [
+          "范围不可跨组织；抽屉打开不重排底图；取消保留列表位置并恢复导出按钮焦点",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU02-P01-02.png"
+        ],
+        "source": "MASTER-PLAN.md#T02"
+      },
+      {
+        "id": "DU03",
+        "task_id": "T03",
+        "surface_ids": [
+          "P01-A01"
+        ],
+        "mode": "ACTION_HIGHLIGHT",
+        "parent_unit_id": "DU01",
+        "baseline_ref": "planned:DU01@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "打开导出业务区"
+        ],
+        "acceptance": [
+          "具备读取权限才能打开；打开/取消不创建导出任务；无权限显示原因和返回入口",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU03-P01-A01.png"
+        ],
+        "source": "MASTER-PLAN.md#T03"
+      },
+      {
+        "id": "DU04",
+        "task_id": "T04",
+        "surface_ids": [
+          "P01-A02"
+        ],
+        "mode": "ACTION_HIGHLIGHT",
+        "parent_unit_id": "DU02",
+        "baseline_ref": "planned:DU02@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "提交导出业务区"
+        ],
+        "acceptance": [
+          "具备导出权限且范围有效才能提交；进行中禁止重复触发；确认完成后才进入结果面",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU04-P01-A02.png"
+        ],
+        "source": "MASTER-PLAN.md#T04"
+      },
+      {
+        "id": "DU05",
+        "task_id": "T05",
+        "surface_ids": [
+          "P01-S01"
+        ],
+        "mode": "EDIT_PARENT",
+        "parent_unit_id": "DU02",
+        "baseline_ref": "planned:DU02@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "处理与结果核对业务区"
+        ],
+        "acceptance": [
+          "展示请求标识和当前任务状态；超时标为结果未知；先核对状态再决定继续等待或重试",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU05-P01-S01.png"
+        ],
+        "source": "MASTER-PLAN.md#T05"
+      },
+      {
+        "id": "DU06",
+        "task_id": "T06",
+        "surface_ids": [
+          "P01-E01"
+        ],
+        "mode": "EDIT_PARENT",
+        "parent_unit_id": "DU02",
+        "baseline_ref": "planned:DU02@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "已确认失败业务区"
+        ],
+        "acceptance": [
+          "已确认失败才进入本面；显示原因并保留范围；修复入口回到原范围，不能宣称未知写入已回滚",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU06-P01-E01.png"
+        ],
+        "source": "MASTER-PLAN.md#T06"
+      },
+      {
+        "id": "DU07",
+        "task_id": "T07",
+        "surface_ids": [
+          "P01-R01"
+        ],
+        "mode": "EDIT_PARENT",
+        "parent_unit_id": "DU01",
+        "baseline_ref": "planned:DU01@v1; approval pending",
+        "frozen_regions": [
+          "导航",
+          "页面外壳"
+        ],
+        "allowed_regions": [
+          "导出结果业务区"
+        ],
+        "acceptance": [
+          "显示已完成任务标识、导出范围与下载入口；下载失败保留结果并提供重新获取入口",
+          "冻结导航和外壳保持一致"
+        ],
+        "outputs": [
+          "assets/DU07-P01-R01.png"
+        ],
+        "source": "MASTER-PLAN.md#T07"
+      }
+    ]
+  }
+}

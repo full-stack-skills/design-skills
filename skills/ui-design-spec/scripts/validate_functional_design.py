@@ -5,6 +5,7 @@ import json
 import re
 from pathlib import Path
 from validate_task_coverage import validate as validate_tasks
+from methodology import validate_contract, render_maps
 
 DOCUMENTS = ('README.md', 'FUNCTION-CATALOG.md', 'NAVIGATION.md',
              'UI-STRUCTURE.md', 'USER-FLOWS.md', 'SCREEN-REGISTRY.md',
@@ -13,7 +14,7 @@ PAGE_FIELDS = ('id', 'name', 'scope', 'nav', 'phase', 'purpose', 'entry',
                'layout', 'fields', 'validation', 'state', 'error', 'result', 'requirements')
 
 
-def validate(package, document_map=None, require_task_coverage=False):
+def validate(package, document_map=None, require_task_coverage=False, require_methodology=False):
     """返回结构问题，不修改文档或提升状态；允许现有文件名通过映射保留。"""
     root = Path(package)
     mapping = document_map or {}
@@ -175,22 +176,40 @@ def validate(package, document_map=None, require_task_coverage=False):
                     errors.append('task coverage surfaces do not match registry')
         except (OSError, ValueError):
             pass  # 读取问题已由任务校验器返回。
+    if require_methodology or 'methodology' in data:
+        try:
+            task_data = json.loads(task_index.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            task_data = {}
+        relation_errors = validate_contract(data, task_data, page_ids, surfaces, actions)
+        errors.extend(relation_errors)
+        generated = root / 'DESIGN-MAP.generated.md'
+        if not relation_errors:
+            try:
+                expected_map = render_maps(data, root, task_data)
+                if generated.exists() and generated.read_text(encoding='utf-8') != expected_map:
+                    errors.append('methodology: stale generated design map')
+            except (OSError, UnicodeError, ValueError) as exc:
+                errors.append(str(exc))
     return sorted(set(errors))
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='Examples:\n  python validate_functional_design.py docs/functional-design --require-task-coverage --require-methodology\n'
+               'Exit codes: 0 = valid; 1 = validation failure; 2 = invalid CLI usage. Output: JSON.')
     parser.add_argument('package', type=Path)
     parser.add_argument('--document-map', type=Path, help='JSON mapping of logical document names to existing paths')
     parser.add_argument('--require-task-coverage', action='store_true', help='Require derived task coverage index for new full-product packages')
+    parser.add_argument('--require-methodology', action='store_true', help='Require menu/page/flow/design relationship contract')
     args = parser.parse_args()
     try:
         mapping = json.loads(args.document_map.read_text()) if args.document_map else None
-        errors = validate(args.package, mapping, args.require_task_coverage)
+        errors = validate(args.package, mapping, args.require_task_coverage, args.require_methodology)
     except (OSError, ValueError) as exc:
         errors = [str(exc)]
     print(json.dumps({'valid': not errors, 'errors': errors,
-                      'boundary': 'Structure and supplied task index only; scope completeness, semantic review, approvals and runtime evidence remain separate.'}, ensure_ascii=False, indent=2))
+                      'boundary': 'Declared structure, relationships and source fingerprints only; scope completeness, semantic review, approvals and runtime evidence remain separate.'}, ensure_ascii=False, indent=2))
     return int(bool(errors))
 
 

@@ -1,0 +1,5 @@
+# Provenance hashes describe canonical LF snapshot bytes on every host.
+evals/fixtures/ui-design-spec/agent-browser/**/*.md text eol=lf
+evals/fixtures/ui-design-spec/agent-browser/**/*.json text eol=lf
+evals/ui-design-spec/proof-run-20261003-v2/**/*.md text eol=lf
+evals/ui-design-spec/proof-run-20261003-v2/**/*.json text eol=lf

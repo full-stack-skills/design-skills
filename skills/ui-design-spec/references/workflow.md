@@ -48,7 +48,7 @@ Output: navigation contract.
 
 Use the repository’s documentation conventions/skills to persist confirmed behavior and navigation. Documentation is a persistence layer, not a substitute for the design decisions themselves.
 
-For full functional design packages, use this skill’s spec mode, complete Agent Browser example and Evently focused examples. Retain one requirements/task source; the package is the detailed design projection, not a competing PRD or task state.
+For full functional design packages, use this skill’s spec mode, detailed workflow and delivery contracts. Retain one requirements/task source; the package is the detailed design projection, not a competing PRD or task state.
 
 ## Stage 4 — Page task preparation
 

@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "features": [
+    "F01"
+  ],
+  "surfaces": [
+    "P01-01",
+    "P01-02",
+    "P01-A01",
+    "P01-A02",
+    "P01-S01",
+    "P01-E01",
+    "P01-R01"
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T01 订单列表",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-01"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "T02",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T02 导出范围",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-02"
+      ],
+      "depends_on": [
+        "T01"
+      ]
+    },
+    {
+      "id": "T03",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T03 打开导出",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-A01"
+      ],
+      "depends_on": [
+        "T01"
+      ]
+    },
+    {
+      "id": "T04",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T04 提交导出",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-A02"
+      ],
+      "depends_on": [
+        "T02"
+      ]
+    },
+    {
+      "id": "T05",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T05 处理与结果核对",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-S01"
+      ],
+      "depends_on": [
+        "T02"
+      ]
+    },
+    {
+      "id": "T06",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T06 已确认失败",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-E01"
+      ],
+      "depends_on": [
+        "T02"
+      ]
+    },
+    {
+      "id": "T07",
+      "source": "MASTER-PLAN.md",
+      "marker": "## T07 导出结果",
+      "feature_ids": [
+        "F01"
+      ],
+      "surface_ids": [
+        "P01-R01"
+      ],
+      "depends_on": [
+        "T01"
+      ]
+    }
+  ]
+}

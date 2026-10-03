@@ -13,7 +13,7 @@ class FunctionalDesignTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        example = Path(__file__).resolve().parents[1] / 'examples/agent-browser'
+        example = Path(__file__).resolve().parents[3] / 'evals/fixtures/ui-design-spec/agent-browser'
         self.root = Path(self.temp.name) / 'example'
         shutil.copytree(example, self.root)
         self.package = self.root / 'docs/functional-design'

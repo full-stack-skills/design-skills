@@ -72,3 +72,18 @@ ID、名称、父模块、角色、Scope、核心问题、导航归属、入口�
 ## task-coverage.json / 派生任务索引
 
 按 [任务覆盖合同](../references/task-coverage.md)从上述原任务源生成 features、surfaces 和 tasks 引用。surfaces 覆盖 Registry 全集合，依赖引用原任务 ID，source/marker 定位原任务行。不得存执行状态。新完整包使用 --require-task-coverage；同时人工核实功能范围和任务内容，不能只通过 JSON 自证完整。
+
+## 六项关系投影 / registry.methodology
+
+按[六项交付合同](../references/methodology-contract.md)填写 objects、features、menus、page_details、surface_details、transitions、design_units，复用本包现有 ID。
+
+| 菜单 ID/父菜单 | 页面/默认页 | 业务对象/数据归属 | 功能/上游/下游 | 非菜单页归属 |
+| --- | --- | --- | --- | --- |
+
+| 转换 ID/动作 ID | 导航/命令/局部切换 | 来源 | 前提/权限 | 状态变化 | 成功/失败/取消去向 | 失败恢复 |
+| --- | --- | --- | --- | --- | --- | --- |
+
+| 设计单元 ID/原任务 ID | Surface | 模式/父单元/母版版本 | 冻结区域 | 允许变化/预算 | 唯一产物路径 | 可观察验收 |
+| --- | --- | --- | --- | --- | --- | --- |
+
+范围内 Tab、详情、创建/编辑、抽屉、确认、结果、错误、空状态逐项登记适用性；未覆盖项列出缺口与影响。严格校验使用 --require-task-coverage --require-methodology；派生地图用 generate_design_maps.py --write/--check，生成后对照原文与实际资产审阅。

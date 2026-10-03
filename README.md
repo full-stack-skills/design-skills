@@ -50,7 +50,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | `ui-design-feature` | Turn underspecified product features into observable behavior contracts covering actions, states, permissions, evidence, and acceptance. |
 | `ui-design-nav` | Define scoped navigation, routes, activation, context propagation, deep links, and return contracts without hierarchy drift. |
 | `ui-design-continuity` | Continue approved UI families with explicit immutable regions, change budgets, scoped feedback, and baseline-vs-candidate checks. |
-| `ui-design-spec` | Unified entry: spec mode produces complete feature/page/flow/layout/task packages with Agent Browser and Evently examples; execution mode hands off to Harness and specialists. |
+| `ui-design-spec` | Unified entry: Product-independent method for menu maps, page specs, interaction surfaces, flows, independent design units, and generated consistency checks; execution hands off to Harness and specialists. |
 | `ui-design-review` | Audit cross-artifact design consistency, distinguish mechanical and judgment checks, and block promotion when evidence or authority is unresolved. |
 | `ui-design-harness` | Execute resumable, evidence-backed design SOPs across specialist skills, tools, approvals, corrections, reconciliation, and promotion gates. |
 | `ui-design-theme` | Apply reusable artifact themes. |

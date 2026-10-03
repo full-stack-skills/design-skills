@@ -1,6 +1,6 @@
 # 完整功能设计交付合同
 
-新项目默认 `docs/functional-design/`，主形态来自 Agent Browser。固定的是文档职责与深度；已有项目保留命名及事实源，在 README 登记映射，不能因文件名不同就重做规格。
+新项目默认 `docs/functional-design/`，按文档职责组织。固定的是文档职责与深度；已有项目保留命名及事实源，在 README 登记映射，不能因文件名不同就重做规格。
 
 ## 标准目录与职责
 
@@ -18,6 +18,8 @@ docs/functional-design/
   DESIGN-EXECUTION.md
   STATUS.md
   registry.json
+  task-coverage.json
+  DESIGN-MAP.generated.md
 ```
 
 | 文件 | 必须包含 |
@@ -35,13 +37,15 @@ docs/functional-design/
 | STATUS | 分列文档、视觉、批准、实现、运行验收；当前缺口/待决、实际检查证据、下一项任务；不复制另一套任务勾选状态 |
 | registry.json | 页面与全局面、稳定 ID、字段、动作来源/目标/返回、状态的机器索引；不替代正式需求与任务 |
 
-项目特有的架构/集成文件按需追加。Agent Browser 的 CODEX-INTEGRATION.md 是样例特有内容，不是通用必交付。无需生成旧 00–06 + delivery.json 的重复文档；旧包只用于兼容教学。
+项目特有的架构/集成文件按需追加，不要求生成无实际用途的附加文档。无需生成旧 00–06 + delivery.json 的重复文档；旧包只用于兼容教学。
+
+新完整包按[六项交付合同](methodology-contract.md)在 Registry 增补关系投影，派生 task-coverage 与 DESIGN-MAP；历史来源保持原字节，不回填。地图生成不覆盖正文、任务或审批。菜单/页面双向映射、失败恢复目标、父母版绑定、冻结边界和输出唯一性通过双严格开关校验；视觉和语义仍单独审阅。
 
 ## 逐项内容深度
 
-遵循 [工作法](evently-design-workflow.md)的十项模块展开。功能清单必须能追到逐页/模块合同；每页必须有真实内容区、输入字段、动作和返回；每个主要动作必须有明确的业务变化、异常恢复和去向。共同规则集中定义并引用，差异不能被“同上”隐藏。只填目录、模块名、通用页面骨架、同一句失败提示均不合格。
+遵循 [工作法](design-workflow.md)的十项模块展开。功能清单必须能追到逐页/模块合同；每页必须有真实内容区、输入字段、动作和返回；每个主要动作必须有明确的业务变化、异常恢复和去向。共同规则集中定义并引用，差异不能被“同上”隐藏。只填目录、模块名、通用页面骨架、同一句失败提示均不合格。
 
-编号保持目标项目语义，不固定页面数量，不机械给每项操作新增整页图。示例 pages P01–P20/J01–J03/A01 的数量不推广到其它产品。
+编号保持目标项目语义，不固定页面数量，不机械给每项操作新增整页图。页面与任务数量从目标项目范围计算。
 
 ## 任务与状态只有一个事实源
 
@@ -51,7 +55,7 @@ docs/functional-design/
 
 ## 机器索引与检查
 
-默认兼容 Agent Browser 的 registry 结构，见 [完整原索引](../examples/agent-browser/docs/functional-design/registry.json)：
+标准 registry 结构如下：
 
 - `version`、`status` 记录文档版本和真实状态；结构校验不修改它们。
 - `pages[]`：`id/name/scope/nav/phase/purpose/entry/layout/fields/validation/state/error/result/requirements` 为具体非空文字。

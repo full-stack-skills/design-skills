@@ -108,7 +108,7 @@
 - 正常、异常、结果覆盖；产物位置或命名规则。
 - 可观察验收、夹具/验证方法、需保留的实际证据。
 
-具体深度参照 [Evently D-P06-04 执行说明](../examples/evently-functional-design-walkthrough.md)。不得以“完善页面”“依 Registry”代替实际内容。
+具体深度遵循[设计任务合同](../references/design-task-contract.md)。不得以“完善页面”“依 Registry”代替实际内容。
 
 ## 06-review-report.md 必填审阅
 

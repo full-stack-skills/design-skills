@@ -1,0 +1,91 @@
+{
+  "scope": "Synthetic order export; specifications and relationships only",
+  "counts": {
+    "menus": 1,
+    "pages": 1,
+    "surfaces": 7,
+    "actions": 2,
+    "independent_tasks": 7,
+    "design_units": 7
+  },
+  "valid_contract_errors": [],
+  "generation": [
+    {
+      "command": [
+        "C:\\Users\\hnxyh\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+        "-X",
+        "utf8",
+        "E:\\workspaces\\workspace-agent-skills\\full-stack-skills-repositories\\design-skills\\skills\\ui-design-spec\\scripts\\generate_design_maps.py",
+        "E:\\workspaces\\workspace-agent-skills\\full-stack-skills-repositories\\design-skills\\evals\\ui-design-spec\\proof-run-20261003-v2\\package",
+        "--write",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"mode\": \"write\",\n  \"output\": \"E:\\\\workspaces\\\\workspace-agent-skills\\\\full-stack-skills-repositories\\\\design-skills\\\\evals\\\\ui-design-spec\\\\proof-run-20261003-v2\\\\package\\\\DESIGN-MAP.generated.md\",\n  \"errors\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "C:\\Users\\hnxyh\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+        "-X",
+        "utf8",
+        "E:\\workspaces\\workspace-agent-skills\\full-stack-skills-repositories\\design-skills\\skills\\ui-design-spec\\scripts\\generate_design_maps.py",
+        "E:\\workspaces\\workspace-agent-skills\\full-stack-skills-repositories\\design-skills\\evals\\ui-design-spec\\proof-run-20261003-v2\\package",
+        "--check",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"valid\": true,\n  \"mode\": \"check\",\n  \"output\": \"E:\\\\workspaces\\\\workspace-agent-skills\\\\full-stack-skills-repositories\\\\design-skills\\\\evals\\\\ui-design-spec\\\\proof-run-20261003-v2\\\\package\\\\DESIGN-MAP.generated.md\",\n  \"errors\": []\n}\n",
+      "stderr": ""
+    }
+  ],
+  "faults": [
+    {
+      "case": "不存在的菜单默认页",
+      "rejected": true,
+      "errors": [
+        "methodology: M01 default page outside menu targets"
+      ]
+    },
+    {
+      "case": "不存在的失败去向",
+      "rejected": true,
+      "errors": [
+        "methodology: FLOW02 unknown failure target"
+      ]
+    },
+    {
+      "case": "修改冻结导航",
+      "rejected": true,
+      "errors": [
+        "methodology: DU02 frozen/allowed overlap"
+      ]
+    },
+    {
+      "case": "继承单元没有母版",
+      "rejected": true,
+      "errors": [
+        "methodology: DU02 missing baseline_ref"
+      ]
+    },
+    {
+      "case": "两个单元覆盖同一产物",
+      "rejected": true,
+      "errors": [
+        "methodology: DU02 duplicate output path assets/DU01-P01-01.png"
+      ]
+    },
+    {
+      "case": "来源变化但地图未重建",
+      "rejected": true,
+      "errors": [
+        "methodology: stale generated design map"
+      ]
+    }
+  ],
+  "artifacts_rendered": 0,
+  "approved_assets": 0,
+  "production_runtime_verified": false
+}

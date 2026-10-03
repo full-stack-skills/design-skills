@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Specification"
+  short_description: "整理完整功能、页面、交互与独立设计任务并校验一致性"
+  default_prompt: "使用 $ui-design-spec 为目标产品或功能整理完整设计规格，保留现有事实源与稳定 ID，补齐交互恢复、设计任务和验证证据。"

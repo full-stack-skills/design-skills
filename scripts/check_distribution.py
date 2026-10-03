@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     tracked = set(subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0'))
     manifest = json.loads((ROOT / '.claude-plugin/plugin.json').read_text())
-    expected = {str(Path(p) / 'SKILL.md') for p in manifest['skills']}
+    expected = {(Path(p) / 'SKILL.md').as_posix() for p in manifest['skills']}
     actual = {p for p in tracked if p.endswith('/SKILL.md')}
     errors = []
     for p in sorted(actual - expected):
@@ -17,7 +17,6 @@ def main():
     for p in sorted(expected - actual):
         errors.append('missing distributed skill: ' + p)
     resources = list((ROOT / 'skills/ui-design-harness/profiles').glob('*.json'))
-    resources += list((ROOT / 'skills/ui-design-spec/examples').rglob('*.json'))
     resources += [ROOT / 'skills/ui-design-visual' / p for p in
                   ['package.json', 'package-lock.json', 'test-prompts.json', 'assets/personal-asset-index.example.json']]
     for p in resources:
