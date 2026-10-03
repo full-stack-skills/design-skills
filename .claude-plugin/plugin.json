@@ -25,6 +25,7 @@
     "./skills/ui-design-visual",
     "./skills/remotion",
     "./skills/ui-design-theme",
-    "./skills/ui-design-preview"
+    "./skills/ui-design-preview",
+    "./skills/ui-design-to-image"
   ]
 }

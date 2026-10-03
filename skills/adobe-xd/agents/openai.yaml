@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adobe Xd"
+  short_description: "Adobe XD including design creation, prototyping, components…"
+  default_prompt: "Use $adobe-xd to help with my current task: Provides comprehensive guidance for Adobe XD including design creation, prototyping, components, and collaboration."

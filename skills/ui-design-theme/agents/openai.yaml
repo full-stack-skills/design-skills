@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Theme"
+  short_description: "Select, reuse or define a color and typography theme for UI…"
+  default_prompt: "Use $ui-design-theme to help with my current task: Select, reuse or define a color and typography theme for UI and visual artifacts."

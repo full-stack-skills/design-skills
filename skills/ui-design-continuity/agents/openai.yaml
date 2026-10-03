@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Continuity"
+  short_description: "Define pre-render constraints for first-page design…"
+  default_prompt: "Use $ui-design-continuity to help with my current task: Define pre-render constraints for first-page design, inheritance from an approved UI baseline, or scoped correction."

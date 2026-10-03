@@ -42,11 +42,15 @@ compatibility: Bundled validation and generation scripts require Python 3.10 or 
 
 任务边界明确时直接推进，只有缺失决定会影响当前交付才询问。交接时按需读取[职责与交接合同](references/responsibility-contract.md)。
 
+交付规模与运行模式分别判断：完整范围使用六项合同；单模块可沿用现有单文件；模糊想法交付标明假设的草案；局部修正只展开目标与差值。按请求裁剪时读取[通用设计编制规则](references/design-authoring.md)，不为补齐目录擅自扩大业务范围。
+
 ### Step 3：展开功能、页面与交互
 
 按“范围与来源 → 功能详规 → 导航与页面结构 → 用户流程 → Surface Registry”展开。逐页明确使用者、核心问题、字段、布局理由、主次操作、权限、状态与验收。Tab、详情、创建/编辑、抽屉、确认、结果、错误与空态逐项判断适用性；每个动作给出真实来源、前置条件、业务变化、成功/失败/取消去向和恢复。
 
 全产品请求覆盖范围内全部模块，不用几个示范页面代替完成。编写详规时使用[详细工作流](references/design-workflow.md)和[填写模板](assets/specification-template.md)。
+
+共享外壳与组件规则集中定义，各页只展开差异；具体控件标签、数据示例与交互反馈可直接交接。逐项审查状态适用性，补齐响应式、键盘与焦点行为；事实、建议、待确认项分别标注，不把演示值当真实数据。
 
 ### Step 4：形成独立设计任务
 
@@ -81,6 +85,7 @@ python3 <skill>/scripts/generate_design_maps.py <package> --check --format json
 - [ ] 设计单元具有稳定 ID、原任务定位、父依赖、冻结/可变边界及具体退出条件。
 - [ ] 关系覆盖、依赖、输出唯一性和派生地图新鲜度通过实际检查；未运行项如实记录。
 - [ ] 人工语义审查与机器结果分别有证据；规格、候选、批准、实现和运行验收分别报告。
+- [ ] 交付规模符合请求；状态不适用有理由，跨端与无障碍有具体行为，局部修改没有越过冻结边界。
 
 ## 不适用与边界
 
@@ -110,6 +115,7 @@ python3 <skill>/scripts/generate_design_maps.py <package> --check --format json
 - [详细设计工作流](references/design-workflow.md)：功能、逐页和动作深度不足时读取。
 - [交付合同](references/delivery-contract.md)：确定文件职责与现有文件映射时读取。
 - [填写模板](assets/specification-template.md)：编写逐页、流程和任务内容时使用。
+- [通用设计编制规则](references/design-authoring.md)：裁剪交付、细化控件、跨端设计、局部修正或处理冲突/写入失败时读取。
 - [设计任务合同](references/design-task-contract.md)、[任务覆盖](references/task-coverage.md)：拆分与交接任务时读取。
 - [职责与交接](references/responsibility-contract.md)、[执行路由](references/workflow.md)：专业交接或运行内派发时读取。
 - [审阅清单](references/review-checklist.md)：交付前或检查发现缺口时读取。

@@ -2,7 +2,7 @@
 
 ## Project
 
-`design-skills` — curated collection of 15 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
+`design-skills` — curated collection of 17 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
 
 ## Skills
 
@@ -22,6 +22,8 @@
 | `ui-design-theme` | `skills/ui-design-theme/` | Apply reusable artifact themes. |
 | `remotion` | `skills/remotion/` | Create programmatic videos with Remotion. |
 | `ui-design-visual` | `skills/ui-design-visual/` | Create high-fidelity HTML design prototypes. |
+| `ui-design-preview` | `skills/ui-design-preview/` | Synchronize pages and themes across device previews. |
+| `ui-design-to-image` | `skills/ui-design-to-image/` | Generate UI concept images and frontend raster assets through an available, authorized image backend. |
 | `better-icons` | `skills/better-icons/` | Find and use icons. |
 
 ## Directory Structure

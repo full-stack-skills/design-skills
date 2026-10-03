@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Review"
+  short_description: "product specs, navigation registries, page tasks, prompts…"
+  default_prompt: "Use $ui-design-review to help with my current task: Use when product specs, navigation registries, page tasks, prompts, mockups, manifests, or verification evidence may have drifted and a cross-artifact consistency decision is…"

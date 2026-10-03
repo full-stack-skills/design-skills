@@ -1,0 +1,4 @@
+interface:
+  display_name: "Remotion"
+  short_description: "Best practices and domain knowledge for building videos…"
+  default_prompt: "Use $remotion to help with my current task: Best practices and domain knowledge for building videos programmatically with Remotion (videos in React/TypeScript, rendered to MP4)."

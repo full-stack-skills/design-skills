@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Feature"
+  short_description: "a product feature is underspecified, when UI work is starting…"
+  default_prompt: "Use $ui-design-feature to help with my current task: Use when a product feature is underspecified, when UI work is starting before actions/states/permissions/evidence are defined, or when an existing feature needs a behavior…"

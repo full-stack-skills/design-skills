@@ -1,0 +1,4 @@
+interface:
+  display_name: "Better Icons"
+  short_description: "working with icons in any project"
+  default_prompt: "Use $better-icons to help with my current task: Use when working with icons in any project."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Visual"
+  short_description: "Create HTML UI prototypes and visual artifacts from a scoped…"
+  default_prompt: "Use $ui-design-visual to help with my current task: Create HTML UI prototypes and visual artifacts from a scoped specification, theme and continuity brief."

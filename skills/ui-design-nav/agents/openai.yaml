@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Nav"
+  short_description: "menus, tabs, routes, deep links, return behavior, or active…"
+  default_prompt: "Use $ui-design-nav to help with my current task: Use when menus, tabs, routes, deep links, return behavior, or active states are drifting across pages, especially when fixed navigation and page-local views are being confused or…"

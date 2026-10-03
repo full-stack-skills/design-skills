@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design to Image"
+  short_description: "Create UI concept images and frontend raster assets"
+  default_prompt: "Use $ui-design-to-image to generate a scoped UI image or frontend asset while preserving the current design contracts."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Design Harness"
+  short_description: "Use to execute a selected ui-design-spec workflow or resume an…"
+  default_prompt: "Use $ui-design-harness to help with my current task: Use to execute a selected ui-design-spec workflow or resume an existing design run with persistent progress, specialist dispatch, recovery, retries and evidence gates."
