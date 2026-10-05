@@ -1,10 +1,14 @@
 ---
 name: ui-design-use
-description: Route frontend design requests to UI specification, feature, navigation, continuity, theme, editable visual, image generation, preview, review or persistent Harness skills. Use for new UI work, existing-page continuation and scoped corrections without a remote design service.
+description: UI Design plugin entry skill: invoke ui-design-use for frontend design requests. ui-design is the plugin ID, not a callable skill name. Use for complete functional design packages (login-to-feature paths, menu visibility, shell layouts, design systems, page actions and sample pages), editable UI, continuity, images, preview and review; route to the available specialist skills.
 license: Apache-2.0
 ---
 
-# UI Design
+# UI Design entry — ui-design-use
+
+## Invocation identity
+
+The installed plugin ID is `ui-design`; this skill name is `ui-design-use`. When the user asks to use "UI Design" or the `ui-design` plugin, resolve the actually available `ui-design-use` entry from the host skill inventory. Never submit `ui-design` as a skill name. Use the host-reported qualified name when required; do not guess a namespace.
 
 ## When to use this skill
 Design frontend experiences using the host model, local editable artifacts and optional available image generation. The package does not require Stitch, MCP, an API key or an image backend for ordinary design work.
@@ -19,6 +23,9 @@ Design frontend experiences using the host model, local editable artifacts and o
 7. Inspect actual artifacts and review contract/continuity consistency. Report generated, inspected, approved and runtime-verified separately. Approval follows the current project/Harness rules and actual user scope; never invent a receipt from tool success.
 
 ## Entry examples
+
+Invoke `ui-design-use` with the original request, for example: "For ddd4j-ui-pro, produce the login-to-feature path, menu tree and visibility rules, shell layout, components and design system, the action/interaction inventory for all 31 pages, and the P02 role-management sample. Write to the requested docs/functional-design/ directory." Resolve the actual project and existing page contracts first; preserve all page IDs and use `ui-design-spec` with feature/navigation specialists for this design package.
+
 After resolving the separately available ui-design-harness skill, use its runtime with normal Harness commands:
 
 ```text

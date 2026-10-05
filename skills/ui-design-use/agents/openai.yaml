@@ -1,4 +1,4 @@
 interface:
-  display_name: "UI Design"
-  short_description: "Design frontend experiences with scoped delivery"
-  default_prompt: "Use $ui-design-use to design or continue the requested frontend experience while preserving existing contracts."
+  display_name: "UI Design Entry (ui-design-use)"
+  short_description: "Invoke ui-design-use for frontend design packages"
+  default_prompt: "Use $ui-design-use, the entry skill of the UI Design plugin, to design or continue the requested frontend experience while preserving existing contracts. ui-design is the plugin ID, not a skill name."
