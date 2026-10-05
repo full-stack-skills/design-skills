@@ -1,6 +1,6 @@
 ---
 name: ui-design-use
-description: UI Design plugin entry skill: invoke ui-design-use for frontend design requests. ui-design is the plugin ID, not a callable skill name. Use for complete functional design packages (login-to-feature paths, menu visibility, shell layouts, design systems, page actions and sample pages), editable UI, continuity, images, preview and review; route to the available specialist skills.
+description: "UI Design plugin entry skill: invoke ui-design-use for frontend design requests. ui-design is the plugin ID, not a callable skill name. Use for complete functional design packages (login-to-feature paths, menu visibility, shell layouts, design systems, page actions and sample pages), editable UI, continuity, images, preview and review; route to the available specialist skills."
 license: Apache-2.0
 ---
 
