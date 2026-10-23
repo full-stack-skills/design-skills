@@ -28,6 +28,7 @@
     "./skills/ui-design-preview",
     "./skills/ui-design-to-image",
     "./skills/ui-design-use",
-    "./skills/product-interface-spec"
+    "./skills/product-interface-spec",
+    "./skills/product-design-harness"
   ]
 }

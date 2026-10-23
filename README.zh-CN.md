@@ -24,7 +24,7 @@
 
 **设计工具技能** 是一组 AI 编码智能体技能，属于 [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) 生态，由 [PartMe.AI](https://github.com/partme-ai) 维护。
 
-本包当前注册 **19 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
+本包当前注册 **20 个技能**。每个技能是一个独立的 `SKILL.md` 文件，AI 智能体按需加载。
 
 ## 📦 安装
 
@@ -38,7 +38,7 @@ npx skills add full-stack-skills/design-skills
 npx skills add full-stack-skills/design-skills --skill <skill-name>
 ```
 
-## 🎯 技能列表 (19)
+## 🎯 技能列表 (20)
 
 | 技能 | 描述 |
 |------|------|
@@ -61,6 +61,7 @@ npx skills add full-stack-skills/design-skills --skill <skill-name>
 | [ui-design-to-image](skills/ui-design-to-image/SKILL.md) | 使用原生 imagegen 或明确选择的生图后端，生成限定范围的 UI 概念图和前端位图素材。 |
 | [ui-design-preview](skills/ui-design-preview/SKILL.md) | 同步切页、主题切换与多设备预览对比，附完整可独立运行代码。 |
 | `better-icons` | 查找并使用图标。 |
+| [product-design-harness](skills/product-design-harness/SKILL.md) | UX3 用户、证据、商业三 Flow 决策与限定交接；保留 CIS2042 原 MIT 和完整资源，技能内说明本地 Python/jsonschema 前提、宿主模型成本及已知 override 空白绕过限制。 |
 
 ## 🤖 支持的智能体
 

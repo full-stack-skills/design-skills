@@ -2,7 +2,7 @@
 
 ## Project
 
-`design-skills` — curated collection of 19 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
+`design-skills` — curated collection of 20 registered Agent Skills for AI coding agents (Claude Code, Codex, Cursor, etc.). Part of the [Full Stack Skills](https://github.com/partme-ai/full-stack-skills) ecosystem by PartMe.AI. Apache 2.0 licensed.
 
 ## Skills
 
@@ -27,6 +27,7 @@
 | `product-interface-spec` | `skills/product-interface-spec/` | Product interface specifications and delivery validation |
 | `ui-design-to-image` | `skills/ui-design-to-image/` | Generate UI concept images and frontend raster assets through an available, authorized image backend. |
 | `better-icons` | `skills/better-icons/` | Find and use icons. |
+| `product-design-harness` | `skills/product-design-harness/` | UX3 product decisions and bounded handoff; third-party CIS2042 MIT with complete resources and documented override limitation. |
 
 ## Directory Structure
 
